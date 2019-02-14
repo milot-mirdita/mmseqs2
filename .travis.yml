@@ -1,4 +1,4 @@
-language: minimal
+language: shell
 
 env:
 
@@ -12,100 +12,108 @@ matrix:
           - qemu-user-static
           - binfmt-support
     env: QEMU_ARM=1
-  - os: linux
-    dist: trusty
-    addons:
-      apt:
-        packages:
-        - cmake
-        - ninja-build
-        - clang-3.6
-        - libc++-dev
-        - zlib1g-dev
-        - libbz2-dev
-        - vim-common
-    env: CC=clang-3.6 CXX=clang++-3.6
-  - os: linux
-    dist: trusty
-    addons:
-      apt:
-        sources:
-        - ubuntu-toolchain-r-test
-        - llvm-toolchain-trusty-7
-        packages:
-        - cmake
-        - ninja-build
-        - clang-7
-        - libc++-7-dev
-        - libc++abi-7-dev
-        - zlib1g-dev
-        - libbz2-dev
-        - vim-common
-    env: CC=clang-7 CXX=clang++-7
-  - os: linux
-    dist: trusty
-    addons:
-      apt:
-        packages:
-        - cmake
-        - ninja-build
-        - gcc-4.8
-        - g++-4.8
-        - zlib1g-dev
-        - libbz2-dev
-        - vim-common
-    env: CC=gcc-4.8 CXX=g++-4.8
-  - os: linux
-    dist: trusty
-    addons:
-      apt:
-        sources:
-        - ubuntu-toolchain-r-test
-        packages:
-        - cmake
-        - ninja-build
-        - gcc-8
-        - g++-8
-        - zlib1g-dev
-        - libbz2-dev
-        - vim-common
-    env: CC=gcc-8 CXX=g++-8
-  - os: linux
-    dist: trusty
-    addons:
-      apt:
-        sources:
-        - ubuntu-toolchain-r-test
-        packages:
-        - cmake
-        - ninja-build
-        - gcc-8
-        - g++-8
-        - zlib1g-dev
-        - libbz2-dev
-        - vim-common
-        - libopenmpi-dev
-    env: MPI=1 CC=gcc-8 CXX=g++-8
-  - os: osx
-    osx_image: xcode10.1
-    addons:
-      homebrew:
-        packages:
-        - cmake
-        - ninja
-        - gcc@8
-        - zlib
-        - bzip2
-    env: CC=gcc-8 CXX=g++-8
-  allow_failures:
-  - env: QEMU_ARM=1
-  fast_finish: true
+#  - os: linux
+#    dist: trusty
+#    addons:
+#      apt:
+#        packages:
+#        - cmake
+#        - ninja-build
+#        - clang-3.6
+#        - libc++-dev
+#        - zlib1g-dev
+#        - libbz2-dev
+#        - vim-common
+#    env: CC=clang-3.6 CXX=clang++-3.6
+#  - os: linux
+#    dist: trusty
+#    addons:
+#      apt:
+#        sources:
+#        - ubuntu-toolchain-r-test
+#        - llvm-toolchain-trusty-7
+#        packages:
+#        - cmake
+#        - ninja-build
+#        - clang-7
+#        - libc++-7-dev
+#        - libc++abi-7-dev
+#        - zlib1g-dev
+#        - libbz2-dev
+#        - vim-common
+#    env: CC=clang-7 CXX=clang++-7
+#  - os: linux
+#    dist: trusty
+#    addons:
+#      apt:
+#        packages:
+#        - cmake
+#        - ninja-build
+#        - gcc-4.8
+#        - g++-4.8
+#        - zlib1g-dev
+#        - libbz2-dev
+#        - vim-common
+#    env: CC=gcc-4.8 CXX=g++-4.8
+#  - os: linux
+#    dist: trusty
+#    addons:
+#      apt:
+#        sources:
+#        - ubuntu-toolchain-r-test
+#        packages:
+#        - cmake
+#        - ninja-build
+#        - gcc-8
+#        - g++-8
+#        - zlib1g-dev
+#        - libbz2-dev
+#        - vim-common
+#    env: CC=gcc-8 CXX=g++-8
+#  - os: linux
+#    dist: trusty
+#    addons:
+#      apt:
+#        sources:
+#        - ubuntu-toolchain-r-test
+#        packages:
+#        - cmake
+#        - ninja-build
+#        - gcc-8
+#        - g++-8
+#        - zlib1g-dev
+#        - libbz2-dev
+#        - vim-common
+#        - libopenmpi-dev
+#    env: MPI=1 CC=gcc-8 CXX=g++-8
+#  - os: osx
+#    osx_image: xcode10.1
+#    addons:
+#      homebrew:
+#        packages:
+#        - cmake
+#        - ninja
+#        - gcc@8
+#        - zlib
+#        - bzip2
+#    env: CC=gcc-8 CXX=g++-8
+  - os: windows
+#  allow_failures:
+#  - env: QEMU_ARM=1
+#  fast_finish: true
+
 
 services:
   - docker
 
 before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link gcc@8 --force; fi
+  - |
+    if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then \
+      brew link gcc@8 --force; \
+    elif [[ "$TRAVIS_OS_NAME" == "windows" ]]; then \
+      choco install -y cyg-get
+      /c/ProgramData/chocolatey/bin/cyg-get.bat bash xxd cmake make gcc-g++ zlib-devel libbz2-devel busybox-standalone binutils
+    fi
   - export CC
   - export CXX
 
@@ -118,6 +126,8 @@ script:
       mkdir build; cd build; cmake -G Ninja -DHAVE_MPI="$MPI" -DHAVE_SSE4_1=1 .. || exit 1; ninja || exit 1; \
     elif [[ "$TRAVIS_OS_NAME" == "osx" ]]; then \
       ./util/build_osx.sh . build || exit 1; \
+    elif [[ "$TRAVIS_OS_NAME" == "windows" ]]; then \
+      PATH="/c/tools/cygwin/bin/:/c/Windows/System32/" cmd //c "bash util/build_windows.sh . build"; \
     else \
       exit 1; \
     fi
