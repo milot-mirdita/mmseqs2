@@ -260,7 +260,8 @@ Matcher::result_t Matcher::parseAlignmentRecord(const char *data, bool readCompr
 
     unsigned int targetId = Util::fast_atoi<unsigned int>(key);
     int score = Util::fast_atoi<int>(entry[1]);
-    double seqId = strtod(entry[2],NULL);
+    size_t seqIdTmp = strtoull(entry[2], NULL, 10);
+    double seqId = static_cast<double>(seqIdTmp) / static_cast<double>(1000);
     double eval = strtod(entry[3],NULL);
 
     int qStart =  Util::fast_atoi<int>(entry[4]);
