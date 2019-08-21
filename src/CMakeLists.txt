@@ -145,8 +145,7 @@ else ()
     endif (HAVE_AVX2_EXTENSIONS)
 endif ()
 
-# tinyexpr
-target_link_libraries(mmseqs-framework tinyexpr)
+target_link_libraries(mmseqs-framework tinyexpr ryu)
 
 find_package(ZLIB QUIET)
 if (ZLIB_FOUND)

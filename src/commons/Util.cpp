@@ -15,6 +15,8 @@
 #include <sys/sysctl.h>
 #endif
 
+#include "ryu.h"
+#include "ryu2.h"
 #include "simd.h"
 #include "MemoryMapped.h"
 
@@ -805,14 +807,14 @@ std::string SSTR(unsigned long long x) {
 
 template<>
 std::string SSTR(double x) {
-    char buffer[32];
-    int n = sprintf(buffer, "%.3E", x);
+    char buffer[64];
+    int n = d2exp_buffered_n(x, 3, buffer);
     return std::string(buffer, n);
 }
 
 template<>
 std::string SSTR(float x) {
-    char buffer[32];
-    int n = sprintf(buffer, "%.3f", x);
+    char buffer[64];
+    int n = d2fixed_buffered_n(x, 3, buffer);
     return std::string(buffer, n);
 }
