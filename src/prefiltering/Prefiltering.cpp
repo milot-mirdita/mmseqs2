@@ -290,7 +290,7 @@ void Prefiltering::setupSplit(DBReader<unsigned int>& tdbr, const int alphabetSi
     int optimalSplitMode = Parameters::TARGET_DB_SPLIT;
     if (memoryNeeded > 0.9 * memoryLimit) {
         if (splitMode == Parameters::QUERY_DB_SPLIT) {
-            Debug(Debug::ERROR) << "--split-mode was set to query-split (" << Parameters::QUERY_DB_SPLIT << ") but memory limit requires target-split." <<
+            Debug(Debug::ERROR) << "--split-mode was set to query-split but memory limit requires target-split." <<
                                 " Please use a computer with more main memory or run with default --split-mode setting.\n";
             EXIT(EXIT_FAILURE);
         }

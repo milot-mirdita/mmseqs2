@@ -89,27 +89,12 @@ public:
         }
     }
 
-
     template<typename T>
-    Debug& operator<<( T t)
-    {
+    Debug& operator<<(const T& t) {
         buffer.append(SSTR(t));
         return *this;
     }
 
-    Debug& operator<<(double val){
-        char str[64];
-        snprintf(str, sizeof(str), "%f", val);
-        buffer.append(str);
-        return *this;
-    }
-
-    Debug& operator<<(float val){
-        char str[64];
-        snprintf(str, sizeof(str), "%f", val);
-        buffer.append(str);
-        return *this;
-    }
     static void setDebugLevel(int i);
 
     class Progress{

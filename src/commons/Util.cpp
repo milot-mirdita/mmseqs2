@@ -1,13 +1,11 @@
 #include "Util.h"
 #include "Debug.h"
-#include "kseq.h"
-#include "FileUtil.h"
-#include "BaseMatrix.h"
-#include "SubstitutionMatrix.h"
-#include "Sequence.h"
 #include "Parameters.h"
-#include <sys/resource.h>
 #include "itoa.h"
+#include "simd.h"
+#include "MemoryMapped.h"
+
+#include "ryu2.h"
 
 #include <unistd.h>
 #ifdef __APPLE__
@@ -15,20 +13,14 @@
 #include <sys/sysctl.h>
 #endif
 
-#include "ryu.h"
-#include "ryu2.h"
-#include "simd.h"
-#include "MemoryMapped.h"
-
 #include <fstream>
 #include <algorithm>
 #include <sys/mman.h>
+#include <sys/resource.h>
 
 #ifdef OPENMP
 #include <omp.h>
 #endif
-
-KSEQ_INIT(int, read)
 
 int Util::readMapping(std::string mappingFilename, std::vector<std::pair<unsigned int, unsigned int>> & mapping){
     MemoryMapped indexData(mappingFilename, MemoryMapped::WholeFile, MemoryMapped::SequentialScan);
@@ -84,28 +76,6 @@ void Util::decomposeDomain(size_t domain_size, size_t world_rank,
         *subdomain_size += domain_size % world_size;
     }
 }
-
-std::map<std::string, size_t> Util::readMapping(const char *fastaFile) {
-    std::map<std::string, size_t> map;
-    FILE *fasta_file = FileUtil::openFileOrDie(fastaFile, "r", true);
-    kseq_t *seq = kseq_init(fileno(fasta_file));
-    size_t i = 0;
-    while (kseq_read(seq) >= 0) {
-        std::string key = Util::parseFastaHeader(seq->name.s);
-        if (map.find(key) == map.end()) {
-            map[key] = i;
-            i++;
-        } else {
-            Debug(Debug::ERROR) << "Duplicated key " << key << " in function readMapping.\n";
-            EXIT(EXIT_FAILURE);
-        }
-    }
-    kseq_destroy(seq);
-    fclose(fasta_file);
-    return map;
-}
-
-
 
 template <typename T>
 void Util::decomposeDomainByAminoAcid(size_t dbSize, T entrySizes, size_t dbEntries,
