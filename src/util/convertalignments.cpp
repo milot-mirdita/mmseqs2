@@ -284,7 +284,16 @@ int convertalignments(int argc, const char **argv, const Command &command) {
                 size_t tHeaderId = tDbrHeader->sequenceReader->getId(res.dbKey);
                 const char *tHeader = tDbrHeader->sequenceReader->getData(tHeaderId, thread_idx);
                 size_t tHeaderLen = tDbrHeader->sequenceReader->getSeqLens(tHeaderId);
-                std::string targetId = Util::parseFastaHeader(tHeader);
+                const char* targetId;
+                int targetIdLength;
+                std::pair<ssize_t, ssize_t> pos = Util::getFastaHeaderPosition(tHeader);
+                if(pos.first == -1 && pos.second == -1) {
+                    targetId = "";
+                    targetIdLength = 0;
+                } else {
+                    targetId = tHeader + pos.first;
+                    targetIdLength = pos.second;
+                }
 
                 unsigned int gapOpenCount = 0;
                 unsigned int alnLen = res.alnLength;
@@ -328,8 +337,8 @@ int convertalignments(int argc, const char **argv, const Command &command) {
                     case Parameters::FORMAT_ALIGNMENT_BLAST_TAB: {
                         if (outcodes.empty()) {
                             int count = snprintf(buffer, sizeof(buffer),
-                                                 "%s\t%s\t%1.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.2E\t%d\n",
-                                                 queryId.c_str(), targetId.c_str(), res.seqId, alnLen,
+                                                 "%s\t%.*s\t%1.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.2E\t%d\n",
+                                                 queryId.c_str(), targetIdLength, targetId, res.seqId, alnLen,
                                                  missMatchCount, gapOpenCount,
                                                  res.qStartPos + 1, res.qEndPos + 1,
                                                  res.dbStartPos + 1, res.dbEndPos + 1,
@@ -355,7 +364,7 @@ int convertalignments(int argc, const char **argv, const Command &command) {
                                         result.append(queryId);
                                         break;
                                     case Parameters::OUTFMT_TARGET:
-                                        result.append(targetId);
+                                        result.append(targetId, targetIdLength);
                                         break;
                                     case Parameters::OUTFMT_EVALUE:
                                         result.append(SSTR(res.eval));
@@ -472,8 +481,8 @@ int convertalignments(int argc, const char **argv, const Command &command) {
                     }
                     case Parameters::FORMAT_ALIGNMENT_BLAST_WITH_LEN: {
                         int count = snprintf(buffer, sizeof(buffer),
-                                             "%s\t%s\t%1.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.2E\t%d\t%d\t%d\n",
-                                             queryId.c_str(), targetId.c_str(), res.seqId, alnLen,
+                                             "%s\t%.*s\t%1.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.2E\t%d\t%d\t%d\n",
+                                             queryId.c_str(), targetIdLength, targetId, res.seqId, alnLen,
                                              missMatchCount, gapOpenCount,
                                              res.qStartPos + 1, res.qEndPos + 1,
                                              res.dbStartPos + 1, res.dbEndPos + 1,
@@ -494,7 +503,7 @@ int convertalignments(int argc, const char **argv, const Command &command) {
                         uint32_t mapq = -4.343 * log(exp(static_cast<double>(-rawScore)));
                         mapq = (uint32_t) (mapq + 4.99);
                         mapq = mapq < 254 ? mapq : 254;
-                        int count = snprintf(buffer, sizeof(buffer), "%s\t%d\t%s\t%d\t%d\t",  queryId.c_str(), (strand) ? 16: 0, targetId.c_str(), res.dbStartPos + 1, mapq);
+                        int count = snprintf(buffer, sizeof(buffer), "%s\t%d\t%.*s\t%d\t%d\t",  queryId.c_str(), (strand) ? 16: 0, targetIdLength, targetId, res.dbStartPos + 1, mapq);
                         if (count < 0 || static_cast<size_t>(count) >= sizeof(buffer)) {
                             Debug(Debug::WARNING) << "Truncated line in entry" << i << "!\n";
                             continue;

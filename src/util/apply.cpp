@@ -1,3 +1,4 @@
+#ifndef __MINGW32__
 #include "Parameters.h"
 #include "DBReader.h"
 #include "DBWriter.h"
@@ -412,4 +413,4 @@ int apply(int argc, const char **argv, const Command& command) {
 
     return EXIT_SUCCESS;
 }
-
+#endif

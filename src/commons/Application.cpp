@@ -199,7 +199,7 @@ int shellcompletion(int argc, const char **argv) {
     return EXIT_SUCCESS;
 }
 
-int main(int argc, const char **argv) {
+int MMseqsMain(int argc, const char **argv) {
     checkCpu();
 
     if (argc < 2) {
@@ -261,3 +261,9 @@ int main(int argc, const char **argv) {
 
     return EXIT_SUCCESS;
 }
+
+#ifndef __MINGW32__
+int main(int argc, const char **argv) {
+    return MMseqsMain(argc, argv);
+}
+#endif

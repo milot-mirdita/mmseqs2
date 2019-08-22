@@ -5,7 +5,9 @@
 extern int align(int argc, const char **argv, const Command& command);
 extern int alignall(int argc, const char **argv, const Command& command);
 extern int alignbykmer(int argc, const char **argv, const Command& command);
+#ifndef __MINGW32__
 extern int apply(int argc, const char **argv, const Command& command);
+#endif
 extern int besthitperset(int argc, const char **argv, const Command &command);
 extern int transitivealign(int argc, const char **argv, const Command &command);
 extern int clust(int argc, const char **argv, const Command& command);

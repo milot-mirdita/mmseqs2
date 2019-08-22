@@ -8,3 +8,10 @@ const char* show_extended_help = "1";
 const char* show_bash_info = "1";
 bool hide_base_commands = false;
 std::vector<Command> commands = {};
+
+#ifdef __MINGW32__
+extern int MMseqsMain(int argc, const char **argv);
+int main(int argc, const char** argv) {
+    return MMseqsMain(argc, argv);
+}
+#endif

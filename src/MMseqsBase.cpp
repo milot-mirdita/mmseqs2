@@ -392,6 +392,7 @@ std::vector<Command> baseCommands = {
                 "<i:DB> <o:DB>",
                 CITATION_MMSEQS2, {{"DB", DbType::ACCESS_MODE_INPUT, DbType::NEED_DATA, &DbValidator::allDb },
                                          {"DB", DbType::ACCESS_MODE_OUTPUT, DbType::NEED_DATA, &DbValidator::allDb }}},
+#ifndef __MINGW32__
         {"apply",                apply,                &par.threadsandcompression,COMMAND_DB,
                 "Passes each input database entry to stdin of the specified program, executes it and writes its stdout to the output database.",
                 NULL,
@@ -399,6 +400,7 @@ std::vector<Command> baseCommands = {
                 "<i:DB> <o:DB> -- program [args...]",
                 CITATION_MMSEQS2, {{"DB", DbType::ACCESS_MODE_INPUT, DbType::NEED_DATA,  &DbValidator::allDb },
                                          {"DB", DbType::ACCESS_MODE_OUTPUT, DbType::NEED_DATA, &DbValidator::allDb }}},
+#endif
         {"extractorfs",          extractorfs,          &par.extractorfs,          COMMAND_DB,
                 "Extract open reading frames from all six frames from nucleotide sequence DB",
                 NULL,
@@ -810,3 +812,7 @@ std::vector<Command> baseCommands = {
                 "",
                 CITATION_MMSEQS2, {{"",DbType::ACCESS_MODE_INPUT, DbType::NEED_DATA, NULL}}}
 };
+
+#ifdef __MINGW32__
+int MMseqsMain(int argc, const char **argv);
+#endif

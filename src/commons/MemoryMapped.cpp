@@ -16,6 +16,18 @@
 #include "Debug.h"
 #include "Util.h"
 
+/// access position, including range checking
+unsigned char MemoryMapped::at(size_t offset) const
+{
+    // checks
+    if (offset >= _filesize) {
+        Debug(Debug::ERROR) << "offset (" << offset << ") >= _filesize (" << _filesize << ")\n";
+        EXIT(EXIT_FAILURE);
+    }
+    return operator[](offset);
+}
+
+
 // OS-specific
 #ifdef _MSC_VER
 // Windows
@@ -198,19 +210,6 @@ unsigned char MemoryMapped::operator[](size_t offset) const
 {
     return ((unsigned char*)_mappedView)[offset];
 }
-
-
-/// access position, including range checking
-unsigned char MemoryMapped::at(size_t offset) const
-{
-    // checks
-    if (offset >= _filesize) {
-            Debug(Debug::ERROR) << "offset (" << offset << ") >= _filesize (" << _filesize << ")\n";
-            EXIT(EXIT_FAILURE);
-    }
-    return operator[](offset);
-}
-
 
 /// raw access
 const unsigned char* MemoryMapped::getData() const

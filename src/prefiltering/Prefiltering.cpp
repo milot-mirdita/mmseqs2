@@ -448,6 +448,10 @@ void Prefiltering::mergeTargetSplits(const std::string &outDB, const std::string
     std::string result;
     result.reserve(largestEntrySize + 1);
 
+#ifdef __MINGW32__
+#define getc_unlocked getc
+#endif
+
     FILE * outDBFILE = FileUtil::openAndDelete(outDB.c_str(), "w");
     do {
         // go over all files

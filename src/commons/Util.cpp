@@ -16,7 +16,10 @@
 #include <fstream>
 #include <algorithm>
 #include <sys/mman.h>
+
+#ifndef __MINGW32__
 #include <sys/resource.h>
+#endif
 
 #ifdef OPENMP
 #include <omp.h>
@@ -363,19 +366,11 @@ void Util::checkAllocation(void *pointer, std::string message) {
 }
 
 size_t Util::getPageSize() {
-    return sysconf(_SC_PAGE_SIZE); // in bytes
-}
-
-size_t Util::getTotalMemoryPages() {
-#if __APPLE__
-    size_t mem;
-    size_t len = sizeof(mem);
-    sysctlbyname("hw.memsize", &mem, &len, NULL, 0);
-    static size_t phys_pages = mem / Util::getPageSize();
+#ifdef __MINGW32__
+    return 0x1000;
 #else
-    static size_t phys_pages = sysconf(_SC_PHYS_PAGES);
+    return sysconf(_SC_PAGE_SIZE); // in bytes
 #endif
-    return phys_pages;
 }
 
 // in bytes
@@ -787,4 +782,42 @@ std::string SSTR(float x) {
     char buffer[64];
     int n = d2fixed_buffered_n(x, 3, buffer);
     return std::string(buffer, n);
+}
+
+#ifdef __MINGW32__
+#include <windows.h>
+
+void setenv(const char *name, const char *value, bool) {
+    int len = strlen(value)+1+strlen(value)+1;
+    char *str = (char *) malloc(len);
+    sprintf(str, "%s=%s", name, value);
+    putenv(str);
+    free(str);
+}
+
+void unsetenv(const char *name) {
+    int len = strlen(name)+1;
+    char *str = (char *) malloc(len);
+    sprintf(str, "%s=", name);
+    putenv(str);
+    free(str);
+}
+#endif
+
+
+size_t Util::getTotalMemoryPages() {
+#if __APPLE__
+    size_t mem;
+    size_t len = sizeof(mem);
+    sysctlbyname("hw.memsize", &mem, &len, NULL, 0);
+    static size_t phys_pages = mem / Util::getPageSize();
+#elif __MINGW32__
+    MEMORYSTATUSEX status;
+    status.dwLength = sizeof(status);
+    GlobalMemoryStatusEx(&status);
+    static size_t phys_pages = status.ullTotalPhys;
+#else
+    static size_t phys_pages = sysconf(_SC_PHYS_PAGES);
+#endif
+    return phys_pages;
 }

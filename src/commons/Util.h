@@ -75,6 +75,11 @@ template<> std::string SSTR(float);
 #  define MAYBE_UNUSED(x) x
 #endif
 
+#ifdef __MINGW32__
+void setenv(const char *name, const char *value, bool);
+void unsetenv(const char *name);
+#endif
+
 class Util {
 public:
     static void decomposeDomain(size_t domain_size, size_t world_rank,

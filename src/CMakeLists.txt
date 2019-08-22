@@ -6,6 +6,7 @@ set(HAVE_TESTS 0 CACHE BOOL "Have Tests")
 set(HAVE_SHELLCHECK 1 CACHE BOOL "Have ShellCheck")
 set(HAVE_GPROF 0 CACHE BOOL "Have GPROF Profiler")
 set(ENABLE_WERROR 0 CACHE BOOL "Enable Warnings as Errors")
+set(HAVE_GOMP 0 CACHE BOOL "Have GNU OpenMP")
 set(REQUIRE_OPENMP 1 CACHE BOOL "Require availability of OpenMP")
 
 include(AppendTargetProperty)
@@ -79,6 +80,10 @@ endif()
 if (CYGWIN OR ${HAVE_NEON})
     target_compile_definitions(mmseqs-framework PUBLIC -D_GNU_SOURCE=1)
 endif ()
+
+if(MSVS OR MSYS OR MINGW)
+    target_link_libraries(mmseqs-framework compat)
+endif()
 
 # needed for concat.h
 include(CheckCXXSourceRuns)
@@ -218,18 +223,25 @@ if (HAVE_MPI)
 endif ()
 
 
-find_package(OpenMP QUIET)
-if (OPENMP_FOUND)
-    message("-- Found OpenMP")
+if (HAVE_GOMP)
+    message("-- Froced LIBGOMP")
     target_compile_definitions(mmseqs-framework PUBLIC -DOPENMP=1)
-    # For GCC we dont want to do this since it breaks macOS static builds
-    # It will link libgomp.a internally (through -fopenmp I guess)
-    # and also link libgomp.dylib thus breaking static builds
-    # target_link_libraries(mmseqs-framework ${OpenMP_CXX_LIBRARIES})
-    append_target_property(mmseqs-framework COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
-    append_target_property(mmseqs-framework LINK_FLAGS ${OpenMP_CXX_FLAGS})
-elseif (REQUIRE_OPENMP)
-    message(FATAL_ERROR "-- Could not find OpenMP. Skip check with -DREQUIRE_OPENMP=0.")
+    append_target_property(mmseqs-framework COMPILE_FLAGS -fopenmp)
+    append_target_property(mmseqs-framework LINK_FLAGS -fopenmp)
+else ()
+    find_package(OpenMP QUIET)
+    if (OPENMP_FOUND)
+        message("-- Found OpenMP")
+        target_compile_definitions(mmseqs-framework PUBLIC -DOPENMP=1)
+        # For GCC we dont want to do this since it breaks macOS static builds
+        # It will link libgomp.a internally (through -fopenmp I guess)
+        # and also link libgomp.dylib thus breaking static builds
+        # target_link_libraries(mmseqs-framework ${OpenMP_CXX_LIBRARIES})
+        append_target_property(mmseqs-framework COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
+        append_target_property(mmseqs-framework LINK_FLAGS ${OpenMP_CXX_FLAGS})
+    elseif (REQUIRE_OPENMP)
+        message(FATAL_ERROR "-- Could not find OpenMP. Skip check with -DREQUIRE_OPENMP=0.")
+    endif ()
 endif ()
 
 if (HAVE_GPROF)

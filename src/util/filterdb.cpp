@@ -84,6 +84,7 @@ ffindexFilter::ffindexFilter(Parameters &par) {
         char key[4096];
         for (size_t i = 0; i < filenames.size(); i++) {
             FILE *orderFile = fopen(filenames[i].c_str(), "r");
+#ifndef __MINGW32__
             while (getline(&line, &len, orderFile) != -1) {
                 size_t offset = 0;
                 // ignore \0 in data files to support datafiles as input
@@ -96,6 +97,7 @@ ffindexFilter::ffindexFilter(Parameters &par) {
                 Util::parseKey(line + offset, key);
                 filter.emplace_back(key);
             }
+#endif
             fclose(orderFile);
         }
         free(line);

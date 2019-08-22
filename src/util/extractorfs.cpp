@@ -90,7 +90,7 @@ int extractorfs(int argc, const char **argv, const Command& command) {
                     continue;
                 }
 
-                char buffer[LINE_MAX];
+                char buffer[4096];
 
                 std::pair<const char*, size_t> sequence = orf.getSequence(loc);
                 size_t fromPos = loc.from;

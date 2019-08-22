@@ -20,6 +20,10 @@ typedef unsigned __int64 uint64_t;
 #include <stdint.h>
 #endif
 
+#ifdef __MINGW32__
+#define _MSC_VER 1200
+#endif
+
 #include <string>
 
 

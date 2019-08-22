@@ -533,6 +533,9 @@ inline F simd_hmin(const F * in, unsigned int n)
 
 inline void *mem_align(size_t boundary, size_t size)
 {
+#ifdef __MINGW32__
+    return __mingw_aligned_malloc(boundary,size);
+#else
     void *pointer;
     if (posix_memalign(&pointer, boundary, size) != 0) {
 #define MEM_ALIGN_ERROR "mem_align could not allocate memory.\n"
@@ -541,6 +544,7 @@ inline void *mem_align(size_t boundary, size_t size)
         exit(3);
     }
     return pointer;
+#endif
 }
 #ifdef SIMD_FLOAT
 inline simd_float * malloc_simd_float(const size_t size)

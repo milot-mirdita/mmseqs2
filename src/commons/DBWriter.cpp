@@ -178,12 +178,14 @@ void DBWriter::open(size_t bufferSize) {
         indexFileNames[i] = makeResultFilename(indexFileName, i);
 
         dataFiles[i] = FileUtil::openAndDelete(dataFileNames[i], datafileMode.c_str());
+#ifndef __MINGW32__
         int fd = fileno(dataFiles[i]);
         int flags;
         if ((flags = fcntl(fd, F_GETFL, 0)) < 0 || fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == -1) {
             Debug(Debug::ERROR) << "Can not set mode for " << dataFileNames[i] << "!\n";
             EXIT(EXIT_FAILURE);
         }
+#endif
 
         dataFilesBuffer[i] = new(std::nothrow) char[bufferSize];
         Util::checkAllocation(dataFilesBuffer[i], "Cannot allocate buffer for DBWriter");
@@ -195,11 +197,13 @@ void DBWriter::open(size_t bufferSize) {
         }
 
         indexFiles[i] =  FileUtil::openAndDelete(indexFileNames[i], "w");
+#ifndef __MINGW32__
         fd = fileno(indexFiles[i]);
         if ((flags = fcntl(fd, F_GETFL, 0)) < 0 || fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == -1) {
             Debug(Debug::ERROR) << "Can not set mode for " << indexFileNames[i] << "!\n";
             EXIT(EXIT_FAILURE);
         }
+#endif
 
         if (setvbuf(indexFiles[i], NULL, _IOFBF, bufferSize) != 0) {
             Debug(Debug::WARNING) << "Write buffer could not be allocated (bufferSize=" << bufferSize << ")\n";

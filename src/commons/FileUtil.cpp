@@ -10,10 +10,17 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/statvfs.h>
 #include <sys/types.h>
 #include <dirent.h>
 #include <sys/mman.h>
+
+#ifndef __MINGW32__
+#include <sys/statvfs.h>
+#else
+bool mkdir(const char* directoryName, const int) {
+    return mkdir(directoryName);
+}
+#endif
 
 bool FileUtil::fileExists(const char* fileName) {
     struct stat st;
@@ -129,6 +136,9 @@ std::string FileUtil::baseName(const std::string &file) {
 }
 
 size_t FileUtil::getFreeSpace(const char *path) {
+#ifdef __MINGW32__
+    return -1;
+#else
     struct statvfs stat;
     if (statvfs(path, &stat) != 0) {
         // error happens, just quits here
@@ -137,9 +147,13 @@ size_t FileUtil::getFreeSpace(const char *path) {
 
     // the available size is f_bsize * f_bavail
     return stat.f_bfree * stat.f_frsize;
+#endif
 }
 
 std::string FileUtil::getHashFromSymLink(const std::string path){
+#ifdef __MINGW32__
+    return "";
+#else
     char *p = realpath(path.c_str(), NULL);
     if (p == NULL) {
         Debug(Debug::ERROR) << "Could not get path of " << path << "!\n";
@@ -150,9 +164,13 @@ std::string FileUtil::getHashFromSymLink(const std::string path){
     free(p);
 
     return base;
+#endif
 }
 
 void FileUtil::symlinkAlias(const std::string &file, const std::string &alias) {
+#ifdef __MINGW32__
+    return;
+#else
     char *p = realpath(file.c_str(), NULL);
     if (p == NULL) {
         Debug(Debug::ERROR) << "Could not get path of " << file << "!\n";
@@ -183,9 +201,13 @@ void FileUtil::symlinkAlias(const std::string &file, const std::string &alias) {
         Debug(Debug::ERROR) << "Error closing directory " << path << "!\n";
         EXIT(EXIT_FAILURE);
     }
+#endif
 }
 
 void FileUtil::symlinkAbs(const std::string &target, const std::string &link) {
+#ifdef __MINGW32__
+    return;
+#else
     if(FileUtil::fileExists(link.c_str())){
         FileUtil::remove(link.c_str());
     }
@@ -221,6 +243,7 @@ void FileUtil::symlinkAbs(const std::string &target, const std::string &link) {
 
     free(t);
     free(l);
+#endif
 }
 
 size_t FileUtil::getFileSize(const std::string &fileName) {
@@ -231,9 +254,13 @@ size_t FileUtil::getFileSize(const std::string &fileName) {
 
 
 bool FileUtil::symlinkExists(const std::string &path)  {
+#ifdef __MINGW32__
+    return false;
+#else
     struct stat buf;
     int result = lstat(path.c_str(), &buf);
     return (result == 0);
+#endif
 }
 
 void FileUtil::copyFile(const char *src, const char *dst) {

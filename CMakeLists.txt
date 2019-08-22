@@ -59,6 +59,12 @@ if (APPLE)
     set(MMSEQS_CXX_FLAGS "${MMSEQS_CXX_FLAGS} -D__APPLE_API_STRICT_CONFORMANCE")
 endif ()
 
+if (MSYS OR MINGW)
+    set(MMSEQS_CXX_FLAGS "${MMSEQS_CXX_FLAGS} -D_USE_MATH_DEFINES -mwindows")
+    include_directories(lib/compat)
+    add_subdirectory(lib/compat)
+endif()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     set(MMSEQS_CXX_FLAGS "${MMSEQS_CXX_FLAGS} -D_WITH_GETLINE")
 endif()

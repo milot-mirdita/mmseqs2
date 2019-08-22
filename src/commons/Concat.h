@@ -105,7 +105,11 @@ public:
 
     static size_t io_blksize(const struct stat& sb) {
         const size_t IO_BUFSIZE = 64 * 1024;
+#ifdef __MINGW32__
+        return IO_BUFSIZE;
+#else
         return std::max(IO_BUFSIZE, static_cast<size_t >(sb.st_blksize));
+#endif
     }
 
 
@@ -128,7 +132,7 @@ public:
             size_t insize = io_blksize(stat_buf);
             insize = std::max(insize, outsize);
 
-            size_t page_size = getpagesize();
+            size_t page_size = Util::getPageSize();
             char *inbuf = (char *) mem_align(page_size, insize);
 #if HAVE_POSIX_FADVISE
             if (posix_fadvise (input_desc, 0, 0, POSIX_FADV_SEQUENTIAL) != 0){
