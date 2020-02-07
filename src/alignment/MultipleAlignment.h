@@ -1,14 +1,9 @@
-//
-// Created by mad on 3/15/15.
-//
-
 #ifndef MMSEQS_MULTIPLEALIGNMENT_H
 #define MMSEQS_MULTIPLEALIGNMENT_H
 
-#include <cstddef>
-#include <vector>
-
 #include "Matcher.h"
+#include "Sequence.h"
+#include "SubstitutionMatrix.h"
 
 class MultipleAlignment {
 public:
@@ -19,27 +14,22 @@ public:
         ENDGAP=22 //number representing a ignored gaps (for some calculations like gap percentage)
     };
 
-    struct MSAResult{
+    struct MSAResult {
         size_t msaSequenceLength;
         size_t centerLength;
         size_t setSize;
-        char ** msaSequence;
-        char * keep;
-		std::vector<Matcher::result_t> alignmentResults;
+        char **msaSequence;
+        char *keep;
 
         MSAResult(size_t msaSequenceLength, size_t centerLength, size_t setSize, char **msa)
                 : msaSequenceLength(msaSequenceLength), centerLength(centerLength), setSize(setSize), msaSequence(msa), keep(NULL) {}
-
-        MSAResult(size_t msaSequenceLength, size_t centerLength, size_t setSize, char **msa,std::vector<Matcher::result_t> alignmentResults)
-                : msaSequenceLength(msaSequenceLength), centerLength(centerLength), setSize(setSize), msaSequence(msa), keep(NULL), alignmentResults(alignmentResults) {}
     };
 
 
-    MultipleAlignment(size_t maxSeqLen, size_t maxSetSize, SubstitutionMatrix *subMat, Matcher *aligner);
+    MultipleAlignment(size_t maxSeqLen, size_t maxSetSize, SubstitutionMatrix *subMat);
 
     ~MultipleAlignment();
-    // Compute center star multiple alignment from sequence input
-    MultipleAlignment::MSAResult computeMSA(Sequence *centerSeq, const std::vector<Sequence *> &edgeSeqs, bool noDeletionMSA);
+
     static void print(MSAResult msaResult, SubstitutionMatrix * subMat);
 
     // init aligned memory for the MSA
@@ -49,18 +39,14 @@ public:
 
     // clean memory for MSA
     static void deleteMSA(MultipleAlignment::MSAResult * res);
-	
-	
+
 private:
-    Matcher * aligner;
     BaseMatrix * subMat;
 
     size_t maxSeqLen;
     size_t maxSetSize;
     size_t maxMsaSeqLen;
     unsigned int * queryGaps;
-
-    std::vector<Matcher::result_t> computeBacktrace(Sequence *center, const std::vector<Sequence *>& sequences);
 
     void computeQueryGaps(unsigned int *queryGaps, Sequence *center, const std::vector<Sequence *>& seqs, const std::vector<Matcher::result_t>& alignmentResults);
 
@@ -71,8 +57,7 @@ private:
                                                     bool b);
 
     MSAResult singleSequenceMSA(Sequence *centerSeq);
-	
-};
 
+};
 
 #endif //MMSEQS_MULTIPLEALIGNMENT_H

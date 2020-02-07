@@ -5,13 +5,11 @@
 #include "SubstitutionMatrix.h"
 #include "Util.h"
 
-MultipleAlignment::MultipleAlignment(size_t maxSeqLen, size_t maxSetSize, SubstitutionMatrix *subMat,
-                                     Matcher *aligner) {
+MultipleAlignment::MultipleAlignment(size_t maxSeqLen, size_t maxSetSize, SubstitutionMatrix *subMat) {
     this->maxSeqLen = maxSeqLen;
     this->maxMsaSeqLen = maxSeqLen * 2;
     this->maxSetSize = maxSetSize;
 
-    this->aligner = aligner;
     this->subMat = subMat;
     this->queryGaps = new unsigned int[maxMsaSeqLen];
 }
@@ -45,22 +43,6 @@ void MultipleAlignment::print(MSAResult msaResult, SubstitutionMatrix * subMat){
         }
         printf("\n");
     }
-}
-
-std::vector<Matcher::result_t> MultipleAlignment::computeBacktrace(Sequence *centerSeq, const std::vector<Sequence*>& seqs) {
-    std::vector<Matcher::result_t> btSequences;
-    // init query with center star sequence
-    aligner->initQuery(centerSeq);
-    for(size_t i = 0; i < seqs.size(); i++) {
-        Sequence *edgeSeq = seqs[i];
-        Matcher::result_t alignment = aligner->getSWResult(edgeSeq, INT_MAX, false, 0, 0.0, FLT_MAX, Matcher::SCORE_COV_SEQID, 0, false);
-        btSequences.push_back(alignment);
-        if(alignment.backtrace.size() > maxMsaSeqLen){
-            Debug(Debug::ERROR) << "Alignment length is > maxMsaSeqLen in MSA " << centerSeq->getDbKey() << "\n";
-            EXIT(EXIT_FAILURE);
-        }
-    }
-    return btSequences;
 }
 
 void MultipleAlignment::computeQueryGaps(unsigned int *queryGaps, Sequence *centerSeq, const std::vector<Sequence *>& seqs, const std::vector<Matcher::result_t>& alignmentResults) {
@@ -200,22 +182,6 @@ void MultipleAlignment::updateGapsInSequenceSet(char **msaSequence, size_t cente
     }
 }
 
-
-MultipleAlignment::MSAResult MultipleAlignment::computeMSA(Sequence *centerSeq, const std::vector<Sequence *>& edgeSeqs, bool noDeletionMSA) {
-    // just center sequence is included
-    if(edgeSeqs.size() == 0 ){
-        return singleSequenceMSA(centerSeq);
-    }
-
-    size_t dbSetSize = 0;
-    for(size_t i = 0; i < edgeSeqs.size(); i++) {
-        dbSetSize += edgeSeqs[i]->L;
-    }
-    std::vector<Matcher::result_t> alignmentResults = computeBacktrace(centerSeq, edgeSeqs);
-    return computeMSA(centerSeq, edgeSeqs, alignmentResults, noDeletionMSA);
-}
-
-
 MultipleAlignment::MSAResult MultipleAlignment::computeMSA(Sequence *centerSeq, const std::vector<Sequence *>& edgeSeqs,
                                                            const std::vector<Matcher::result_t>& alignmentResults, bool noDeletionMSA) {
     if(edgeSeqs.size() == 0 ){
@@ -260,7 +226,7 @@ MultipleAlignment::MSAResult MultipleAlignment::computeMSA(Sequence *centerSeq, 
 	
 	
     // +1 for the query
-    return MSAResult(centerSeqSize, centerSeq->L, edgeSeqs.size() + 1, msaSequence, alignmentResults);
+    return MSAResult(centerSeqSize, centerSeq->L, edgeSeqs.size() + 1, msaSequence);
 }
 
 MultipleAlignment::MSAResult MultipleAlignment::singleSequenceMSA(Sequence *centerSeq) {
