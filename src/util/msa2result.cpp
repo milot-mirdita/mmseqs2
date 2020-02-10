@@ -133,6 +133,14 @@ int msa2result(int argc, const char **argv, const Command &command) {
     resultWriter.open();
 
     SubstitutionMatrix subMat(par.scoringMatrixFile.aminoacids, 2.0f, -0.2f);
+    SubstitutionMatrix::FastMatrix fastMatrix = SubstitutionMatrix::createAsciiSubMat(subMat);
+    // we need an evaluer to compute a normalized bitScore.
+    // the validity of the evalue is questionable since we give the number of entries in the MSA db
+    // and not the total number of residues
+    // also, since not all against all comparisons were cariied out, it is not straight-forward to 
+    // decide what to correct for.
+    EvalueComputation evaluer(msaReader.getSize(), &subMat, par.gapOpen, par.gapExtend);
+
 
     Debug::Progress progress(msaReader.getSize());
 #pragma omp parallel
@@ -363,9 +371,10 @@ int msa2result(int argc, const char **argv, const Command &command) {
                 const char* currSeq = msaSequences[i];
                 unsigned int currentCol = 0;
                 unsigned int currentMask = 0;
-//                std::string gapCons;
-//                std::string gapSeq;
                 std::string bt;
+                std::string currSeqNoGaps;
+                std::string consSeqNoGaps;
+                size_t numIdentical = 0;
                 for (size_t j = 0; j < centerLengthWithGaps; ++j) {
                     bool takeFromEnd = false;
                     if (maskedColumns[j] == 1) {
@@ -383,14 +392,19 @@ int msa2result(int argc, const char **argv, const Command &command) {
                         continue;
                     } else if (conRes != '-' && seqRes == '-') {
                         bt.append(1, 'D');
+                        consSeqNoGaps.append(1, conRes);
                     } else if (conRes == '-' && seqRes != '-') {
                         bt.append(1, 'I');
+                        currSeqNoGaps.append(1, seqRes);
                     } else if (conRes != '-' && seqRes != '-') {
                         bt.append(1, 'M');
+                        currSeqNoGaps.append(1, seqRes);
+                        consSeqNoGaps.append(1, conRes);
                     }
-//                    gapCons.append(1, conRes);
-//                    gapSeq.append(1, seqRes);
 
+                    if (conRes == seqRes) {
+                        numIdentical++;
+                    }
                 }
 //                std::cout << gapCons << '\n';
 //                std::cout << bt << '\n';
@@ -414,8 +428,18 @@ int msa2result(int argc, const char **argv, const Command &command) {
                  unsigned int dbLen,
                  std::string backtrace)
  */
+
+                float seqId = (float)numIdentical / bt.length();
+
                 unsigned int key = setSizes[id] + i;
-                results.emplace_back(key, 0, 0, 0, 0, 0, bt.length(), 0, 0, 0, 0, 0, 0, bt);
+                // initialize res with some values
+                Matcher::result_t res(key, 0, 1.0, 1.0, seqId, 0, bt.length(), 0, currSeqNoGaps.size() - 1, currSeqNoGaps.size(), 
+                                        0, consSeqNoGaps.size() - 1, consSeqNoGaps.size(), bt);
+                // and update them and compute the score
+                Matcher::updateResultByRescoringBacktrace(currSeqNoGaps.c_str(), consSeqNoGaps.c_str(), fastMatrix.matrix, evaluer, 
+                                                            par.gapOpen, par.gapExtend, res);
+                
+                results.emplace_back(res);
             }
 
             resultWriter.writeStart(thread_idx);
