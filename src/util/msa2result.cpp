@@ -391,10 +391,10 @@ int msa2result(int argc, const char **argv, const Command &command) {
                     if (conRes == '-' && seqRes == '-') {
                         continue;
                     } else if (conRes != '-' && seqRes == '-') {
-                        bt.append(1, 'D');
+                        bt.append(1, 'I');
                         consSeqNoGaps.append(1, conRes);
                     } else if (conRes == '-' && seqRes != '-') {
-                        bt.append(1, 'I');
+                        bt.append(1, 'D');
                         currSeqNoGaps.append(1, seqRes);
                     } else if (conRes != '-' && seqRes != '-') {
                         bt.append(1, 'M');
@@ -433,10 +433,11 @@ int msa2result(int argc, const char **argv, const Command &command) {
 
                 unsigned int key = setSizes[id] + i;
                 // initialize res with some values
-                Matcher::result_t res(key, 0, 1.0, 1.0, seqId, 0, bt.length(), 0, currSeqNoGaps.size() - 1, currSeqNoGaps.size(), 
-                                        0, consSeqNoGaps.size() - 1, consSeqNoGaps.size(), bt);
+                Matcher::result_t res(key, 0, 1.0, 1.0, seqId, 0, bt.length(), 0, consSeqNoGaps.size() - 1, consSeqNoGaps.size(), 
+                                        0, currSeqNoGaps.size() - 1, currSeqNoGaps.size(), bt);
+
                 // and update them and compute the score
-                Matcher::updateResultByRescoringBacktrace(currSeqNoGaps.c_str(), consSeqNoGaps.c_str(), fastMatrix.matrix, evaluer, 
+                Matcher::updateResultByRescoringBacktrace(consSeqNoGaps.c_str(), currSeqNoGaps.c_str(), fastMatrix.matrix, evaluer, 
                                                             par.gapOpen, par.gapExtend, res);
                 
                 results.emplace_back(res);

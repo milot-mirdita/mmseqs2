@@ -405,7 +405,7 @@ void Matcher::updateResultByRescoringBacktrace(const char *querySeq, const char 
     result.eval = evalue;
     result.alnLength = (maxBtEndPos - maxBtStartPos) + 1;
     result.seqId = static_cast<float>(maxIdAaCnt) / static_cast<float>(result.alnLength);
-    result.backtrace = result.backtrace.substr(maxBtStartPos, maxBtEndPos);
+    result.backtrace = result.backtrace.substr(maxBtStartPos, result.alnLength);
 
 }
 
