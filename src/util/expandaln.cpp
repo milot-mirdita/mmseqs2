@@ -93,6 +93,7 @@ int expandaln(int argc, const char **argv, const Command& command) {
         aReader.readMmapedDataInMemory();
     }
 
+    bool isCa3m = false;
     DBReader<unsigned int> *resultAbReader = NULL;
     DBReader<unsigned int> *cReader = NULL;
     if (FileUtil::fileExists((par.db3 + "_ca3m.ffdata").c_str())) {
@@ -101,6 +102,7 @@ int expandaln(int argc, const char **argv, const Command& command) {
 
         cReader = new DBReader<unsigned int>((par.db3 + "_sequence.ffdata").c_str(), (par.db3 + "_sequence.ffindex").c_str(), par.threads, DBReader<unsigned int>::USE_INDEX | DBReader<unsigned int>::USE_DATA);
         cReader->open(DBReader<unsigned int>::SORT_BY_LINE);
+        isCa3m = true;
     } else {
         resultAbReader = new DBReader<unsigned int>(par.db3.c_str(), par.db3Index.c_str(), par.threads, DBReader<unsigned int>::USE_INDEX | DBReader<unsigned int>::USE_DATA);
         resultAbReader->open(DBReader<unsigned int>::LINEAR_ACCCESS);
@@ -188,7 +190,7 @@ int expandaln(int argc, const char **argv, const Command& command) {
 
                 unsigned int bResKey = resultAb.dbKey;
                 size_t bResId = resultBcReader.getId(bResKey);
-                if (cReader != NULL) {
+                if (isCa3m) {
                     unsigned int key;
                     CompressedA3M::extractMatcherResults(key, resultsBc, resultBcReader.getData(bResId, thread_idx),
                                                          resultBcReader.getEntryLen(bResId), *cReader, false);
@@ -198,7 +200,7 @@ int expandaln(int argc, const char **argv, const Command& command) {
                 std::stable_sort(resultsAc.begin(), resultsAc.end(), compareHitsByKeyScore);
 
                 size_t lastCKey = SIZE_MAX;
-                currBestAc.eval = DBL_MAX;
+                currBestAc.score = INT_MIN;
                 for (size_t k = 0; k < resultsBc.size(); ++k) {
                     Matcher::result_t &resultBc = resultsBc[k];
                     if (resultBc.backtrace.size() == 0) {
@@ -216,10 +218,10 @@ int expandaln(int argc, const char **argv, const Command& command) {
 
                     unsigned int cSeqKey = resultBc.dbKey;
                     if (lastCKey != cSeqKey) {
-                        if (currBestAc.eval != DBL_MAX) {
+                        if (currBestAc.score != INT_MIN) {
                             resultsAc.emplace_back(currBestAc);
                         }
-                        currBestAc.eval = DBL_MAX;
+                        currBestAc.score = INT_MIN;
 
                         size_t cSeqId = cReader->getId(cSeqKey);
                         cSeq.mapSequence(cSeqId, cSeqKey, cReader->getData(cSeqId, thread_idx), cReader->getSeqLen(cSeqId));
@@ -229,6 +231,9 @@ int expandaln(int argc, const char **argv, const Command& command) {
                     if (resultAc.score > par.minDiagScoreThr && resultAc.score > currBestAc.score) {
                         currBestAc = resultAc;
                     }
+                }
+                if (currBestAc.score != INT_MIN) {
+                    resultsAc.emplace_back(currBestAc);
                 }
                 resultsBc.clear();
             }
