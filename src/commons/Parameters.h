@@ -546,6 +546,7 @@ public:
 
     // mergedbs
     std::string mergePrefixes;
+    bool mergeStopEmpty;
 
     // summarizetabs
     float overlap;
@@ -878,6 +879,7 @@ public:
 
     // mergedbs
     PARAMETER(PARAM_MERGE_PREFIXES)
+    PARAMETER(PARAM_MERGE_STOP_EMPTY)
 
     // summarizetabs
     PARAMETER(PARAM_OVERLAP)
