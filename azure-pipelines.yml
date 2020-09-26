@@ -13,6 +13,14 @@ jobs:
       vmImage: 'Ubuntu-20.04'
     strategy:
       matrix:
+        power8:
+          SIMD: POWER8
+          ARCH: ppc64el
+          CPREF: powerpc64le
+        power9:
+          SIMD: POWER9
+          ARCH: ppc64el
+          CPREF: powerpc64le
         arm64:
           SIMD: ARM8
           ARCH: arm64
