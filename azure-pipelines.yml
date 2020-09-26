@@ -32,9 +32,7 @@ jobs:
           deb [arch=$ARCH] http://ports.ubuntu.com/ubuntu-ports/ focal-security main universe multiverse
           HEREDOC
           sudo apt-get update
-          sudo apt-get -y install crossbuild-essential-$ARCH zlib1g-dev:$ARCH libbz2-dev:$ARCH
-          sudo cat /var/log/dpkg.log /var/log/apt/*
-          sudo dpkg --configure -a
+          sudo apt-get -y install -o APT::Immediate-Configure=false crossbuild-essential-$ARCH zlib1g-dev:$ARCH libbz2-dev:$ARCH
         displayName: Install Toolchain
       - script: |
           mkdir build && cd build
