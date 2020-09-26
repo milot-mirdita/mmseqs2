@@ -33,6 +33,7 @@ jobs:
           HEREDOC
           sudo apt-get update
           sudo apt-get -y install crossbuild-essential-$ARCH zlib1g-dev:$ARCH libbz2-dev:$ARCH
+          cat /var/log/dpkg.log /var/apt/*
         displayName: Install Toolchain
       - script: |
           mkdir build && cd build
