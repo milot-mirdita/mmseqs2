@@ -29,40 +29,40 @@ if [ ! -e "${TMP_PATH}/first.dbtype" ]; then
     "$MMSEQS" search "${INPUT}" "${TARGET}" "${TMP_PATH}/first" "${TMP_PATH}/tmp_hsp1" ${SEARCH_PAR} \
         || fail "First search died"
 fi
-LCAIN="${TMP_PATH}/first"
 
-if [ -n "${TOPHIT_MODE}" ]; then
-  if [ ! -e "${TMP_PATH}/top1.dbtype" ]; then
-      # shellcheck disable=SC2086
-      "$MMSEQS" filterdb "${TMP_PATH}/first" "${TMP_PATH}/top1" --beats-first --filter-column 4 --comparison-operator le ${THREADS_COMP_PAR} \
-          || fail "First filterdb died"
-  fi
-  LCAIN="${TMP_PATH}/top1"
+if [ ! -e "${TMP_PATH}/lcaaln.dbtype" ]; then
+    if [ -n "${TOPHIT_MODE}" ]; then
+        # shellcheck disable=SC2086
+        "$MMSEQS" filterdb "${TMP_PATH}/first" "${TMP_PATH}/lcaaln" --beats-first --filter-column 4 --comparison-operator le ${THREADS_COMP_PAR} \
+            || fail "filterdb died"
+    else
+        # shellcheck disable=SC2086
+        "$MMSEQS" lcaalign "${INPUT}" "${TARGET}" "${TMP_PATH}/first" "${TMP_PATH}/lcaaln" ${LCAALN_PAR} \
+            || fail "lcaalign died"
+    fi
 fi
+
 
 if [ "${TAX_OUTPUT}" -eq "0" ]; then
     # shellcheck disable=SC2086
-    "$MMSEQS" lca "${TARGET}" "${LCAIN}" "${RESULTS}" ${LCA_PAR} \
+    "$MMSEQS" lca "${TARGET}" "${TMP_PATH}/lcaaln" "${RESULTS}" ${LCA_PAR} \
         || fail "Lca died"
 elif [ "${TAX_OUTPUT}" -eq "2" ]; then
     # shellcheck disable=SC2086
-    "$MMSEQS" lca "${TARGET}" "${LCAIN}" "${RESULTS}" ${LCA_PAR} \
+    "$MMSEQS" lca "${TARGET}" "${TMP_PATH}/lcaaln" "${RESULTS}" ${LCA_PAR} \
         || fail "Lca died"
     # shellcheck disable=SC2086
-    "$MMSEQS" mvdb "${LCAIN}" "${RESULTS}_aln" ${VERBOSITY} \
+    "$MMSEQS" mvdb "${TMP_PATH}/lcaaln" "${RESULTS}_aln" ${VERBOSITY} \
         || fail "mvdb died"
 else
     # shellcheck disable=SC2086
-    "$MMSEQS" mvdb "${LCAIN}" "${RESULTS}" ${VERBOSITY} \
+    "$MMSEQS" mvdb "${TMP_PATH}/lcaaln" "${RESULTS}" ${VERBOSITY} \
         || fail "mvdb died"
 fi
 
 if [ -n "${REMOVE_TMP}" ]; then
     rm -rf "${TMP_PATH}/tmp_hsp1"
-
-    if [ -n "${TOPHIT_MODE}" ]; then
-        # shellcheck disable=SC2086
-        "$MMSEQS" rmdb "${TMP_PATH}/first" ${VERBOSITY}
-    fi
+    # shellcheck disable=SC2086
+    "$MMSEQS" rmdb "${TMP_PATH}/first" ${VERBOSITY}
     rm -f "${TMP_PATH}/taxonomy.sh"
 fi

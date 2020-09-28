@@ -81,13 +81,22 @@ int taxonomy(int argc, const char **argv, const Command& command) {
     }
 
     std::string program(tmpDir);
+    float origEvalue = par.evalThr;
     if (par.taxonomySearchMode == Parameters::TAXONOMY_TOP_HIT) {
         cmd.addVariable("TOPHIT_MODE", "1");
     } else if (par.taxonomySearchMode == Parameters::TAXONOMY_2BLCA_APPROX) {
-        par.lcaSearch = true;
-        par.PARAM_LCA_SEARCH.wasSet = true;
+        cmd.addVariable("LCAALIGN_PAR", par.createParameterString(par.align).c_str());
+
+        par.alignmentMode = Parameters::ALIGNMENT_MODE_UNGAPPED;
+        par.PARAM_ALIGNMENT_MODE.wasSet = true;
+        par.sortResults = true;
+        par.PARAM_SORT_RESULTS.wasSet = true;
+        par.evalThr = FLT_MAX;
+        par.PARAM_E.wasSet = true;
+
         cmd.addVariable("TOPHIT_MODE", NULL);
     }
+    par.evalThr = origEvalue;
     cmd.addVariable("SEARCH_PAR", par.createParameterString(par.searchworkflow, true).c_str());
 
     program.append("/taxonomy.sh");
