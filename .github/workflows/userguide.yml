@@ -1,0 +1,20 @@
+name: Wiki PDF
+
+on:
+  gollum
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}.wiki
+      - name: Install dependencies
+        run: apt install pandoc libgraphite2-3
+      - name: Download tectonic
+        run: wget -qO- https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.3.3/tectonic-0.3.3-x86_64-unknown-linux-gnu.tar.gz | tar xzvf - tectonic
+      - name: Run a multi-line script
+        run: |
+          pandoc Home.md -s -t latex | ./tectonic -
+          mv texput.pdf userguide.pdf
