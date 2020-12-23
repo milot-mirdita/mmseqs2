@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
         with:
@@ -14,7 +14,7 @@ jobs:
         run: sudo apt install pandoc libgraphite2-3
       - name: Download tectonic
         run: wget -qO- https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.3.3/tectonic-0.3.3-x86_64-unknown-linux-gnu.tar.gz | tar xzvf - tectonic
-      - name: Run a multi-line script
+      - name: Build PDF
         run: |
           pandoc Home.md -s -t latex | ./tectonic -
           mv texput.pdf userguide.pdf
