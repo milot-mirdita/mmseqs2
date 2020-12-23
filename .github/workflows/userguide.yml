@@ -12,10 +12,19 @@ jobs:
           repository: ${{ github.repository }}.wiki
       - name: Install dependencies
         run: sudo apt install pandoc libgraphite2-3
+      - name: Cache
+        uses: actions/cache@v2.1.3
+        with:
+          path: ~/.cache/Tectonic/
+          key: ${{ runner.os }}-${{ env.cache-name }}-tectonic-0.3.3
       - name: Download tectonic
         run: wget -qO- https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.3.3/tectonic-0.3.3-x86_64-unknown-linux-gnu.tar.gz | tar xzvf - tectonic
       - name: Build PDF
         run: |
           pandoc Home.md -s -t latex | ./tectonic -
           mv texput.pdf userguide.pdf
-          ls -lah userguide.pdf
+      - name: Upload PDF artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: userguide
+          path: userguide.pdf
