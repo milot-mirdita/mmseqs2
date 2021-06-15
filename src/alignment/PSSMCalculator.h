@@ -61,6 +61,9 @@ public:
     //     M_{aa,pos}={log(M_{aa,pos} / b_{aa}).
     static void computeLogPSSM(BaseMatrix *subMat, char *pssm, const float *profile, float bitFactor, size_t queryLength, float scoreBias);
 
+    static void computeGapScoredLogPSSM(BaseMatrix *subMat, char *pssm, const float *profile, float bitFactor,
+                                    size_t queryLength, size_t setSize, float *seqWeight, float *Neff_M, const char **msaSeqs, float scoreBias);
+
 private:
     BaseMatrix* subMat;
 
@@ -114,6 +117,19 @@ private:
 
     // weight of sequence k in column i, calculated from subalignment i
     float *wi;
+
+    // sum of the weights of the sequences in a column which are nogappy considering a window of 2*D+1
+    double *gap_fraction_numerator;
+
+    // sum of the weights of the sequences in a column which have atleast one residue considering a window of 2*D+1
+    double *gap_fraction_denominator;
+
+    // contains the value of log2((beta_gap_parameter+f[i])/(beta_gap_parameter+1)) where f[i] is the fraction of 
+    // the arrays gap_fraction_numerator and gap_fraction_denominator taken columnwise
+    double *delta;
+
+    // the final gap score correction added to each column
+    double *gap_correction;
 
     // number of different amino acids
     int *naa;

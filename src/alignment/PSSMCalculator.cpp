@@ -9,6 +9,7 @@
 #include "Util.h"
 #include "Debug.h"
 #include "MultipleAlignment.h"
+#include <algorithm>
 
 
 PSSMCalculator::PSSMCalculator(SubstitutionMatrix *subMat, size_t maxSeqLength, size_t maxSetSize, int pcmode,
@@ -35,6 +36,10 @@ PSSMCalculator::PSSMCalculator(SubstitutionMatrix *subMat, size_t maxSeqLength, 
         w_contrib[j] = (float*)(w_contrib_backing + (NAA_ALIGNSIZE * j));
     }
     wi = (float*)malloc(maxSetSize * sizeof(float));
+    this->gap_fraction_numerator   = new double[maxSeqLength];
+    this->gap_fraction_denominator = new double[maxSeqLength];
+    this->delta                    = new double[maxSeqLength];
+    this->gap_correction           = new double[maxSeqLength];
     naa = new int[maxSeqLength + 1];
     f = malloc_matrix<float>(maxSeqLength + 1, MultipleAlignment::NAA + 3);
     n = new int*[maxSeqLength + 2];
@@ -63,6 +68,10 @@ PSSMCalculator::~PSSMCalculator() {
     free(w_contrib_backing);
     delete[] w_contrib;
     free(wi);
+    delete[] gap_fraction_numerator;
+    delete[] gap_fraction_denominator;
+    delete[] delta;
+    delete[] gap_correction;
     delete[] naa;
     free(n_backing);
     delete[] n;
@@ -168,7 +177,8 @@ PSSMCalculator::Profile PSSMCalculator::computePSSMFromMSA(size_t setSize, size_
 //    PSSMCalculator::printPSSM(queryLength);
 
     // create final Matrix
-    computeLogPSSM(subMat, pssm, profile, 8.0, queryLength, 0.0);
+    //computeLogPSSM(subMat, pssm, profile, 8.0, queryLength, 0.0);
+    computeGapScoredLogPSSM(subMat, pssm, profile, 8.0, queryLength, setSize, seqWeight, Neff_M, msaSeqs, 0.0);
     computeGapPenalties(queryLength, setSize, msaSeqs, alnResults);
 //    PSSMCalculator::printProfile(queryLength);
 
@@ -222,6 +232,98 @@ void PSSMCalculator::computeLogPSSM(BaseMatrix *subMat, char *pssm, const float 
             pssm[idx] = truncPssmVal;
         }
     }
+}
+
+//Gappiness Score Correction-
+
+void PSSMCalculator::computeGapScoredLogPSSM(BaseMatrix *subMat, char *pssm, const float *profile, float bitFactor,
+                                    size_t queryLength, size_t setSize, float *seqWeight, float *Neff_M, const char **msaSeqs, float scoreBias) {
+    
+    float beta_gap_parameter = 0.3;
+    float B_offset = 0.0;
+    size_t block_length = 3;
+    size_t window_length = 2*block_length+1;
+    unsigned int** gapcount = new unsigned int*[setSize];
+    double * gap_fraction_numerator = new double[queryLength];
+    double * gap_fraction_denominator = new double[queryLength];
+    double * delta = new double[queryLength];
+    double * gap_correction = new double[queryLength];
+
+    for(size_t k = 0; k < setSize; k++) {
+        gapcount[k] = new unsigned int[queryLength];
+        unsigned int gaps = 0; 
+
+        for(size_t i = 0; i < block_length; i++){
+            if((msaSeqs[k][i] == MultipleAlignment::GAP)){
+                gaps++;
+            }
+        }
+
+        for(size_t pos = 0; pos < block_length; pos++){
+            if((msaSeqs[k][pos+block_length] == MultipleAlignment::GAP)){
+                gaps++;
+            }
+            gapcount[k][pos] = gaps;
+        }
+
+        for(size_t pos = block_length; pos < queryLength-block_length; pos++){
+            if((msaSeqs[k][pos+block_length] == MultipleAlignment::GAP)){
+                gaps++;
+            }
+            gapcount[k][pos] = gaps;
+            if((msaSeqs[k][pos-block_length] == MultipleAlignment::GAP)){
+                gaps--;
+            }
+        }
+
+        for(size_t pos = queryLength - block_length; pos < queryLength; pos++){
+            if((msaSeqs[k][pos-block_length] == MultipleAlignment::GAP)){
+                gaps--;
+            }
+            gapcount[k][pos] = gaps;
+        }
+    }
+
+    for (size_t pos = 0; pos < queryLength; pos++){
+        gap_fraction_numerator[pos] = 0;
+        gap_fraction_denominator[pos] = 0;
+        for (size_t k = 0; k < setSize; k++){
+            if(gapcount[k][pos] == 0){
+                gap_fraction_numerator[pos] +=  seqWeight[k];
+            }
+            if(gapcount[k][pos] != (unsigned int)window_length){
+                gap_fraction_denominator[pos] +=  seqWeight[k];
+            }
+        }
+    }
+
+    delete[] gapcount;
+
+    for(size_t pos = 0; pos < queryLength; pos++){
+        delta[pos] = MathUtil::flog2 (((gap_fraction_numerator[pos]/gap_fraction_denominator[pos]) + beta_gap_parameter)/(beta_gap_parameter + 1));
+    }
+
+    for(size_t pos = 0; pos < queryLength; pos++){
+        size_t left_window = ((int) pos - (int) block_length > 0) ? (int) pos - (int)block_length : 0;
+        size_t right_window = ((int) pos + (int) block_length >= (int) queryLength-1) ? (int) queryLength-1 : (int) pos + (int) block_length;
+        gap_correction[pos] = *std::max_element(delta + pos - left_window, delta + pos + right_window);
+    }
+
+    for(size_t pos = 0; pos < queryLength; pos++) {
+
+        for(size_t aa = 0; aa < Sequence::PROFILE_AA_SIZE; aa++) {
+            const float aaProb = profile[pos * Sequence::PROFILE_AA_SIZE + aa];
+            const unsigned int idx = pos * Sequence::PROFILE_AA_SIZE + aa;
+            float logProb = MathUtil::flog2(aaProb / subMat->pBack[aa]);
+            const float pssmVal = bitFactor * logProb  + scoreBias + gap_correction[pos] + B_offset * Neff_M[pos];
+            pssm[idx] = static_cast<char>((pssmVal < 0.0) ? pssmVal - 0.5 : pssmVal + 0.5);
+            float truncPssmVal =  std::min(pssmVal, 127.0f);
+            truncPssmVal       =  std::max(-128.0f, truncPssmVal);
+            pssm[idx] = static_cast<char>((truncPssmVal < 0.0) ? truncPssmVal - 0.5 : truncPssmVal + 0.5);
+        }
+
+    }
+
 }
 
 void PSSMCalculator::preparePseudoCounts(float *frequency, float *frequency_with_pseudocounts, size_t entrySize,
