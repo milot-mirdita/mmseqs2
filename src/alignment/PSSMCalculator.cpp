@@ -256,7 +256,7 @@ void PSSMCalculator::computeLogPSSM(BaseMatrix *subMat, char *pssm, const float 
 void PSSMCalculator::computeGapScoredLogPSSM(BaseMatrix *subMat, char *pssm, const float *profile, float bitFactor,
                                     size_t queryLength, size_t setSize, float *seqWeight, float *Neff_M, const char **msaSeqs, float scoreBias) {
     float beta_gap_parameter = strtof(getenv("GAPPY_BETA"), NULL);
-    float B_offset = 0.0;
+    float B_offset = strtof(getenv("GAPPY_OFFSET"), NULL);
     size_t block_length = strtoull(getenv("GAPPY_BLOCK"), NULL, 10);
     size_t window_length = 2*block_length+1;
     unsigned int** gapcount = new unsigned int*[setSize];
