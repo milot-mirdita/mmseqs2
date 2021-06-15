@@ -130,7 +130,7 @@ PSSMCalculator::Profile PSSMCalculator::computePSSMFromMSA(size_t setSize, size_
     std::vector<Matcher::result_t> dummy;
     return computePSSMFromMSA(setSize, queryLength, msaSeqs, dummy, wg);
 }
-
+static bool guard = false;
 PSSMCalculator::Profile PSSMCalculator::computePSSMFromMSA(size_t setSize, size_t queryLength, const char **msaSeqs,
                                                            const std::vector<Matcher::result_t> &alnResults, bool wg) {
     increaseSetSize(setSize);
@@ -178,7 +178,20 @@ PSSMCalculator::Profile PSSMCalculator::computePSSMFromMSA(size_t setSize, size_
 
     // create final Matrix
     //computeLogPSSM(subMat, pssm, profile, 8.0, queryLength, 0.0);
-    computeGapScoredLogPSSM(subMat, pssm, profile, 8.0, queryLength, setSize, seqWeight, Neff_M, msaSeqs, 0.0);
+    if (getenv("GAPPY_PSSM") == NULL) {
+        if (guard == false) {
+            Debug(Debug::INFO) << "Using normal PSSM\n";
+            guard = true;
+        }
+        computeLogPSSM(subMat, pssm, profile, 8.0, queryLength, 0.0);
+    } else {
+        if (guard == false) {
+            Debug(Debug::INFO) << "Using gappy-corrected PSSM\n";
+            guard = true;
+        }
+        computeGapScoredLogPSSM(subMat, pssm, profile, 8.0, queryLength, setSize, seqWeight, Neff_M, msaSeqs, 0.0);
+    }
+    //computeGapScoredLogPSSM(subMat, pssm, profile, 8.0, queryLength, setSize, seqWeight, Neff_M, msaSeqs, 0.0);
     computeGapPenalties(queryLength, setSize, msaSeqs, alnResults);
 //    PSSMCalculator::printProfile(queryLength);
 
@@ -202,21 +215,25 @@ void PSSMCalculator::printProfile(size_t queryLength) {
 }
 
 void PSSMCalculator::printPSSM(size_t queryLength){
-    printf("Pos ");
-    for(size_t aa = 0; aa < Sequence::PROFILE_AA_SIZE; aa++) {
-        printf("%3c ", subMat->num2aa[aa]);
-    }
-    printf("\n");
+    //printf("Pos ");
+    //for(size_t aa = 0; aa < Sequence::PROFILE_AA_SIZE; aa++) {
+    //    printf("%3c ", subMat->num2aa[aa]);
+    //}
+    //printf("\n");
     for(size_t i = 0; i <  queryLength; i++) {
-        printf("%3zu ", i);
+        //printf("%3zu ", i);
         for(size_t aa = 0; aa < Sequence::PROFILE_AA_SIZE; aa++){
 //            char pssmVal = (pssm[i * Sequence::PROFILE_AA_SIZE + aa] == -128) ? 0 : pssm[i * Sequence::PROFILE_AA_SIZE + aa]  ;
             char pssmVal = pssm[i * Sequence::PROFILE_AA_SIZE + aa];
 
-            printf("%3d ",  pssmVal);
+            if (aa == Sequence::PROFILE_AA_SIZE - 1)
+            printf("%d",  pssmVal);
+            else
+            printf("%d\t",  pssmVal);
         }
         printf("\n");
     }
+    fflush(stdout);
 }
 
 void PSSMCalculator::computeLogPSSM(BaseMatrix *subMat, char *pssm, const float *profile, float bitFactor, size_t queryLength, float scoreBias) {
@@ -238,17 +255,11 @@ void PSSMCalculator::computeLogPSSM(BaseMatrix *subMat, char *pssm, const float 
 
 void PSSMCalculator::computeGapScoredLogPSSM(BaseMatrix *subMat, char *pssm, const float *profile, float bitFactor,
                                     size_t queryLength, size_t setSize, float *seqWeight, float *Neff_M, const char **msaSeqs, float scoreBias) {
-    
-    float beta_gap_parameter = 0.3;
+    float beta_gap_parameter = strtof(getenv("GAPPY_BETA"), NULL);
     float B_offset = 0.0;
-    size_t block_length = 3;
+    size_t block_length = strtoull(getenv("GAPPY_BLOCK"), NULL, 10);
     size_t window_length = 2*block_length+1;
     unsigned int** gapcount = new unsigned int*[setSize];
-    double * gap_fraction_numerator = new double[queryLength];
-    double * gap_fraction_denominator = new double[queryLength];
-    double * delta = new double[queryLength];
-    double * gap_correction = new double[queryLength];
-
     for(size_t k = 0; k < setSize; k++) {
         gapcount[k] = new unsigned int[queryLength];
         unsigned int gaps = 0; 
@@ -296,7 +307,9 @@ void PSSMCalculator::computeGapScoredLogPSSM(BaseMatrix *subMat, char *pssm, con
             }
         }
     }
-
+    for (size_t k = 0; k < setSize; k++) {
+        delete gapcount[k];
+    }
     delete[] gapcount;
 
     for(size_t pos = 0; pos < queryLength; pos++){

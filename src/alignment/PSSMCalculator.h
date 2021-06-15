@@ -61,7 +61,7 @@ public:
     //     M_{aa,pos}={log(M_{aa,pos} / b_{aa}).
     static void computeLogPSSM(BaseMatrix *subMat, char *pssm, const float *profile, float bitFactor, size_t queryLength, float scoreBias);
 
-    static void computeGapScoredLogPSSM(BaseMatrix *subMat, char *pssm, const float *profile, float bitFactor,
+    void computeGapScoredLogPSSM(BaseMatrix *subMat, char *pssm, const float *profile, float bitFactor,
                                     size_t queryLength, size_t setSize, float *seqWeight, float *Neff_M, const char **msaSeqs, float scoreBias);
 
 private:
