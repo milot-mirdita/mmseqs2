@@ -178,7 +178,7 @@ PSSMCalculator::Profile PSSMCalculator::computePSSMFromMSA(size_t setSize, size_
 
     // create final Matrix
     //computeLogPSSM(subMat, pssm, profile, 8.0, queryLength, 0.0);
-    if (getenv("GAPPY_PSSM") == NULL) {
+    if (getenv("GAPPY_PSSM") == NULL || std::string(getenv("GAPPY_PSSM")) == "0") {
         if (guard == false) {
             Debug(Debug::INFO) << "Using normal PSSM\n";
             guard = true;
@@ -260,24 +260,24 @@ void PSSMCalculator::computeGapScoredLogPSSM(BaseMatrix *subMat, char *pssm, con
     size_t block_length = strtoull(getenv("GAPPY_BLOCK"), NULL, 10);
     size_t window_length = 2*block_length+1;
     unsigned int** gapcount = new unsigned int*[setSize];
-    for(size_t k = 0; k < setSize; k++) {
+    for (size_t k = 0; k < setSize; k++) {
         gapcount[k] = new unsigned int[queryLength];
         unsigned int gaps = 0; 
 
-        for(size_t i = 0; i < block_length; i++){
+        for (size_t i = 0; i < block_length; i++) {
             if((msaSeqs[k][i] == MultipleAlignment::GAP)){
                 gaps++;
             }
         }
 
-        for(size_t pos = 0; pos < block_length; pos++){
-            if((msaSeqs[k][pos+block_length] == MultipleAlignment::GAP)){
+        for(size_t pos = 0; pos < block_length && pos < queryLength; pos++){
+            if((msaSeqs[k][pos + block_length] == MultipleAlignment::GAP)){
                 gaps++;
             }
             gapcount[k][pos] = gaps;
         }
 
-        for(size_t pos = block_length; pos < queryLength-block_length; pos++){
+        for (size_t pos = block_length; queryLength >= block_length && pos < queryLength - block_length; pos++){
             if((msaSeqs[k][pos+block_length] == MultipleAlignment::GAP)){
                 gaps++;
             }
@@ -287,11 +287,13 @@ void PSSMCalculator::computeGapScoredLogPSSM(BaseMatrix *subMat, char *pssm, con
             }
         }
 
-        for(size_t pos = queryLength - block_length; pos < queryLength; pos++){
-            if((msaSeqs[k][pos-block_length] == MultipleAlignment::GAP)){
-                gaps--;
+        if (queryLength >= block_length) {
+            for(size_t pos = queryLength - block_length; pos < queryLength; pos++){
+                if((msaSeqs[k][pos-block_length] == MultipleAlignment::GAP)){
+                    gaps--;
+                }
+                gapcount[k][pos] = gaps;
             }
-            gapcount[k][pos] = gaps;
         }
     }
 
@@ -319,16 +321,22 @@ void PSSMCalculator::computeGapScoredLogPSSM(BaseMatrix *subMat, char *pssm, con
     for(size_t pos = 0; pos < queryLength; pos++){
         size_t left_window = ((int) pos - (int) block_length > 0) ? (int) pos - (int)block_length : 0;
         size_t right_window = ((int) pos + (int) block_length >= (int) queryLength-1) ? (int) queryLength-1 : (int) pos + (int) block_length;
-        gap_correction[pos] = *std::max_element(delta + pos - left_window, delta + pos + right_window);
+        float maxDelta = -1000.0f;
+        for (size_t i = left_window; i < right_window; ++i) {
+            if (delta[i] > maxDelta) {
+                maxDelta = delta[i];
+            }
+        }
+        gap_correction[pos] = maxDelta; 
     }
 
     for(size_t pos = 0; pos < queryLength; pos++) {
-
+        const float gapCorrection = bitFactor * gap_correction[pos] + B_offset * Neff_M[pos];
         for(size_t aa = 0; aa < Sequence::PROFILE_AA_SIZE; aa++) {
             const float aaProb = profile[pos * Sequence::PROFILE_AA_SIZE + aa];
             const unsigned int idx = pos * Sequence::PROFILE_AA_SIZE + aa;
             float logProb = MathUtil::flog2(aaProb / subMat->pBack[aa]);
-            const float pssmVal = bitFactor * logProb  + scoreBias + gap_correction[pos] + B_offset * Neff_M[pos];
+            const float pssmVal = bitFactor * logProb  + scoreBias + gapCorrection; 
             pssm[idx] = static_cast<char>((pssmVal < 0.0) ? pssmVal - 0.5 : pssmVal + 0.5);
             float truncPssmVal =  std::min(pssmVal, 127.0f);
             truncPssmVal       =  std::max(-128.0f, truncPssmVal);
