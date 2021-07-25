@@ -9,7 +9,7 @@
 #include "Util.h"
 #include "Debug.h"
 #include "MultipleAlignment.h"
-#include <algorithm>
+#include <deque>
 
 
 PSSMCalculator::PSSMCalculator(SubstitutionMatrix *subMat, size_t maxSeqLength, size_t maxSetSize, int pcmode,
