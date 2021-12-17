@@ -283,10 +283,10 @@ s_align SmithWaterman::ssw_align (
     s_align alignment;
     // check if both query and target are profiles
     if (isQueryProfile && isTargetProfile) {
-        alignment = ssw_align_private<SmithWaterman::PROFILE_PROFILE, true>(db_consens_sequence, db_mat, db_length, backtrace, gap_open,
+        alignment = ssw_align_private<SmithWaterman::PROFILE_PROFILE, false>(db_consens_sequence, db_mat, db_length, backtrace, gap_open,
                                                                        gap_extend, alignmentMode, evalueThr, evaluer, covMode, covThr, correlationScoreWeight, maskLen, id);
     } else if (isQueryProfile && !isTargetProfile) {
-        alignment = ssw_align_private<SmithWaterman::PROFILE_SEQ, true>(db_num_sequence, db_mat, db_length, backtrace, gap_open,
+        alignment = ssw_align_private<SmithWaterman::PROFILE_SEQ, false>(db_num_sequence, db_mat, db_length, backtrace, gap_open,
                                                                   gap_extend, alignmentMode, evalueThr, evaluer, covMode, covThr, correlationScoreWeight, maskLen, id);
     } else if (!isQueryProfile && isTargetProfile) {
         alignment = ssw_align_private<SmithWaterman::SEQ_PROFILE, false>(db_num_sequence, db_mat, db_length, backtrace, gap_open,
