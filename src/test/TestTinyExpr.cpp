@@ -9,8 +9,8 @@ int main (int, const char**) {
     ExpressionParser expression("sqrt($11^2+$2^2)");
     if (expression.isOk()) {
         std::vector<int> indices = expression.findBindableIndices();
-        assert(indices[0] == 11);
-        assert(indices[1] == 2);
+        assert(indices[0] == 2);
+        assert(indices[1] == 11);
         expression.bind(11, 3);
         expression.bind(2, 4);
         double result = expression.evaluate();

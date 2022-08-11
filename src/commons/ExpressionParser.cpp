@@ -8,7 +8,7 @@ ExpressionParser::ExpressionParser(const char* expression) : ExpressionParser(ex
 ExpressionParser::ExpressionParser(const char* expression, const std::vector<te_variable>& lookup) {
 #define str2(s) #s
 #define str(s) str2(s)
-#define V(x) { "$" str(x), &variables[((x) - 1)], TE_VARIABLE, NULL},
+#define V(x) { "$" str(x), &variables[((x) - 1)], TE_VARIABLE, NULL, 0 },
     vars = {
             V(1) V(2) V(3) V(4) V(5) V(6) V(7) V(8) V(9) V(10) V(11) V(12) V(13) V(14) V(15) V(16)
             V(17) V(18) V(19) V(20) V(21) V(22) V(23) V(24) V(25) V(26) V(27) V(28) V(29) V(30) V(31) V(32)
@@ -24,38 +24,15 @@ ExpressionParser::ExpressionParser(const char* expression, const std::vector<te_
 #undef str2
     vars.insert(vars.begin(), lookup.begin(), lookup.end());
     expr = te_compile(expression, vars.data(), vars.size(), &err);
+    te_jit(expr);
 }
 
 std::vector<int> ExpressionParser::findBindableIndices() {
     std::vector<int> indices;
-    double* base = variables + 0;
-    std::vector<const double*> pointers;
-    findBound(expr, 0, pointers);
-    for (size_t i = 0; i < pointers.size(); ++i) {
-        indices.emplace_back(pointers[i] - base);
+    for (size_t i = 0; i < 128; ++i) {
+        if (vars[i].bound == 1) {
+            indices.push_back(i);
+        }
     }
-    std::set<int> s(indices.begin(), indices.end());
-    indices.assign(s.begin(), s.end());
     return indices;
-}
-
-void ExpressionParser::findBound(const te_expr *n, int depth, std::vector<const double*> &bound) {
-#define TYPE_MASK(TYPE) ((TYPE)&0x0000001F)
-#define ARITY(TYPE) ( ((TYPE) & (TE_FUNCTION0 | TE_CLOSURE0)) ? ((TYPE) & 0x00000007) : 0 )
-    switch(TYPE_MASK(n->type)) {
-        case 1:
-            break;
-        case 0:
-            bound.emplace_back(n->bound);
-            break;
-
-        default:
-            int arity = ARITY(n->type);
-            for (int i = 0; i < arity; i++) {
-                findBound((const te_expr *) n->parameters[i], depth + 1, bound);
-            }
-            break;
-    }
-#undef TYPE_MASK
-#undef ARITY
 }

@@ -2,7 +2,7 @@
 #define EXPRESSION_PARSER_H
 
 #include <vector>
-#include <tinyexpr.h>
+#include <tinyexpr-compat.h>
 
 class ExpressionParser {
 public:
@@ -16,7 +16,7 @@ public:
     }
 
     bool isOk() {
-        return err == 0;
+        return err == 0 && expr != NULL;
     }
 
     std::vector<int> findBindableIndices();
@@ -33,8 +33,6 @@ public:
     }
 
 private:
-    void findBound(const te_expr *n, int depth, std::vector<const double*> &bound);
-
     te_expr *expr;
     std::vector<te_variable> vars;
     double variables[128];
