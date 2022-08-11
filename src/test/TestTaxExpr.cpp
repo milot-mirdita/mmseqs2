@@ -1,7 +1,6 @@
 #include <iostream>
 #include <cassert>
-#include <tinyexpr.h>
-#include <ExpressionParser.h>
+#include "ExpressionParser.h"
 #include "Util.h"
 #include "TaxonomyExpression.h"
 

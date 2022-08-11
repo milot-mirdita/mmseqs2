@@ -270,9 +270,9 @@ else ()
     set(ZSTD_LIBRARIES libzstd_static)
 endif()
 
-# tinyexpr
-include_directories(lib/tinyexpr)
-add_subdirectory(lib/tinyexpr EXCLUDE_FROM_ALL)
+# exprjit
+include_directories(lib/exprjit)
+add_subdirectory(lib/exprjit EXCLUDE_FROM_ALL)
 
 # microtar
 include_directories(lib/microtar)

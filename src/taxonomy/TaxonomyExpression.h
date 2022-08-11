@@ -29,7 +29,7 @@ public:
         std::string bracketExpression;
         bool inNumber = false;
         for (size_t i = 0; i < expression.size(); i++) {
-            // make brackets around numbers for tinyexpr
+            // make brackets around numbers for exprjit
             const bool isDigit = isdigit(expression[i]);
             if (isDigit && inNumber == true) {
                 bracketExpression.push_back(expression[i]);
