@@ -6,14 +6,14 @@
 #define MMSEQS_MSAFILTER_H
 
 
-#include <SubstitutionMatrix.h>
+#include "BaseMatrix.h"
 #include "MultipleAlignment.h"
 
 class MsaFilter {
 
 public:
 
-    MsaFilter(int maxSeqLen, int maxSetSize, SubstitutionMatrix *m, int gapOpen, int gapExtend);
+    MsaFilter(int maxSeqLen, int maxSetSize, BaseMatrix *m, int gapOpen, int gapExtend);
 
     ~MsaFilter();
     /////////////////////////////////////////////////////////////////////////////////////

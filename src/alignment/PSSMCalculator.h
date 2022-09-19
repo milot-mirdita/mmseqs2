@@ -34,7 +34,7 @@ public:
         void toBuffer(Sequence& centerSequence, BaseMatrix& subMat, std::string& result);
     };
 
-    PSSMCalculator(SubstitutionMatrix *subMat, size_t maxSeqLength, size_t maxSetSize, int pcmode,
+    PSSMCalculator(BaseMatrix *subMat, size_t maxSeqLength, size_t maxSetSize, int pcmode,
                    MultiParam<PseudoCounts> pca, MultiParam<PseudoCounts> pcb, int gapOpen, int gapPseudoCount);
 
     ~PSSMCalculator();

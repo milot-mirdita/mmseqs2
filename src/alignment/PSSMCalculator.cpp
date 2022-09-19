@@ -11,7 +11,7 @@
 #include "MultipleAlignment.h"
 
 
-PSSMCalculator::PSSMCalculator(SubstitutionMatrix *subMat, size_t maxSeqLength, size_t maxSetSize, int pcmode,
+PSSMCalculator::PSSMCalculator(BaseMatrix *subMat, size_t maxSeqLength, size_t maxSetSize, int pcmode,
                                MultiParam<PseudoCounts> pca, MultiParam<PseudoCounts> pcb, int gapOpen, int gapPseudoCount)
     : subMat(subMat),  ps(NULL), maxSeqLength(maxSeqLength), gapOpen(gapOpen), gapPseudoCount(gapPseudoCount), pca(pca), pcb(pcb) {
 

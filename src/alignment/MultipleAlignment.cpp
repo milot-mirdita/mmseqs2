@@ -2,10 +2,10 @@
 
 #include "Debug.h"
 #include "Sequence.h"
-#include "SubstitutionMatrix.h"
+#include "BaseMatrix.h"
 #include "Util.h"
 
-MultipleAlignment::MultipleAlignment(size_t maxSeqLen, SubstitutionMatrix *subMat)
+MultipleAlignment::MultipleAlignment(size_t maxSeqLen, BaseMatrix *subMat)
     : subMat(subMat), maxSeqLen(maxSeqLen), maxMsaSeqLen(maxSeqLen * 2) {
     queryGaps = new unsigned int[maxMsaSeqLen];
 }
@@ -31,7 +31,7 @@ void MultipleAlignment::deleteMSA(MultipleAlignment::MSAResult *res) {
     delete[] res->msaSequence;
 }
 
-void MultipleAlignment::print(MSAResult msaResult, SubstitutionMatrix * subMat){
+void MultipleAlignment::print(MSAResult msaResult, BaseMatrix * subMat){
     for(size_t i = 0; i < msaResult.setSize; i++) {
         for(size_t pos = 0; pos < msaResult.msaSequenceLength; pos++){
             char aa = msaResult.msaSequence[i][pos];

@@ -9,7 +9,7 @@
 #include "MathUtil.h"
 #include "MultipleAlignment.h"
 
-MsaFilter::MsaFilter(int maxSeqLen, int maxSetSize, SubstitutionMatrix *m, int gapOpen, int gapExtend) :
+MsaFilter::MsaFilter(int maxSeqLen, int maxSetSize, BaseMatrix *m, int gapOpen, int gapExtend) :
     // TODO allow changing these?
     PLTY_GAPOPEN(6.0f), PLTY_GAPEXTD(1.0f), gapOpen(gapOpen), gapExtend(gapExtend) {
     this->m = m;

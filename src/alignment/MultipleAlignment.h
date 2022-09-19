@@ -28,12 +28,12 @@ public:
                 : msaSequenceLength(msaSequenceLength), centerLength(centerLength), setSize(setSize), msaSequence(msa) {}
     };
 
-    MultipleAlignment(size_t maxSeqLen, SubstitutionMatrix *subMat);
+    MultipleAlignment(size_t maxSeqLen, BaseMatrix *subMat);
     ~MultipleAlignment();
 
     MSAResult computeMSA(Sequence *centerSeq, const std::vector<std::vector<unsigned char>> &edgeSeqs, const std::vector<Matcher::result_t> &alignmentResults, bool noDeletionMSA);
 
-    static void print(MSAResult msaResult, SubstitutionMatrix * subMat);
+    static void print(MSAResult msaResult, BaseMatrix * subMat);
 
     // init aligned memory for the MSA
     static char **initX(size_t len, size_t setSize);
