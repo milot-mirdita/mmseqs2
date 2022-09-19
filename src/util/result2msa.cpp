@@ -143,8 +143,18 @@ int result2msa(int argc, const char **argv, const Command &command) {
     size_t maxSetSize = resultReader.maxCount('\n') + 1;
 
     // adjust score of each match state by -0.2 to trim alignment
-    SubstitutionMatrix subMat(par.scoringMatrixFile.values.aminoacid().c_str(), 2.0f, -0.2f);
-    EvalueComputation evalueComputation(tDbr->getAminoAcidDBSize(), &subMat, par.gapOpen.values.aminoacid(), par.gapExtend.values.aminoacid());
+    BaseMatrix *subMat;
+    int gapOpen, gapExtend;
+    if (Parameters::isEqualDbtype(qDbr->getDbtype(), Parameters::DBTYPE_NUCLEOTIDES)) {
+        subMat = new NucleotideMatrix(par.scoringMatrixFile.values.nucleotide().c_str(), 1.0f, 0.0);
+        gapOpen = par.gapOpen.values.nucleotide();
+        gapExtend = par.gapExtend.values.nucleotide();
+    } else {
+        subMat = new SubstitutionMatrix(par.scoringMatrixFile.values.aminoacid().c_str(), 2.0f, -0.2f);
+        gapOpen = par.gapOpen.values.aminoacid();
+        gapExtend = par.gapExtend.values.aminoacid();
+    }
+    EvalueComputation evalueComputation(tDbr->getAminoAcidDBSize(), subMat, gapOpen, gapExtend);
     if (qDbr->getDbtype() == -1 || tDbr->getDbtype() == -1) {
         Debug(Debug::ERROR) << "Please recreate your database or add a .dbtype file to your sequence/profile database\n";
         return EXIT_FAILURE;
@@ -165,14 +175,14 @@ int result2msa(int argc, const char **argv, const Command &command) {
         thread_idx = (unsigned int) omp_get_thread_num();
 #endif
 
-        Matcher matcher(qDbr->getDbtype(), tDbr->getDbtype(), maxSequenceLength, &subMat, &evalueComputation, par.compBiasCorrection,
-                        par.compBiasCorrectionScale, par.gapOpen.values.aminoacid(), par.gapExtend.values.aminoacid(), 0.0, par.zdrop);
-        MultipleAlignment aligner(maxSequenceLength, &subMat);
-        PSSMCalculator calculator(&subMat, maxSequenceLength, maxSetSize, par.pcmode, par.pca, par.pcb, par.gapOpen.values.aminoacid(), par.gapPseudoCount);
-        MsaFilter filter(maxSequenceLength, maxSetSize, &subMat, par.gapOpen.values.aminoacid(), par.gapExtend.values.aminoacid());
+        Matcher matcher(qDbr->getDbtype(), tDbr->getDbtype(), maxSequenceLength, subMat, &evalueComputation, par.compBiasCorrection,
+                        par.compBiasCorrectionScale, gapOpen, gapExtend, 0.0, par.zdrop);
+        MultipleAlignment aligner(maxSequenceLength, subMat);
+        PSSMCalculator calculator(subMat, maxSequenceLength, maxSetSize, par.pcmode, par.pca, par.pcb, gapOpen, par.gapPseudoCount);
+        MsaFilter filter(maxSequenceLength, maxSetSize, subMat, gapOpen, gapExtend);
         UniprotHeaderSummarizer summarizer;
-        Sequence centerSequence(maxSequenceLength, qDbr->getDbtype(), &subMat, 0, false, par.compBiasCorrection);
-        Sequence edgeSequence(maxSequenceLength, tDbr->getDbtype(), &subMat, 0, false, false);
+        Sequence centerSequence(maxSequenceLength, qDbr->getDbtype(), subMat, 0, false, par.compBiasCorrection);
+        Sequence edgeSequence(maxSequenceLength, tDbr->getDbtype(), subMat, 0, false, false);
 
         // which sequences where kept after filtering
         bool *kept = new bool[maxSetSize];
@@ -257,6 +267,10 @@ int result2msa(int argc, const char **argv, const Command &command) {
                 if (columns > Matcher::ALN_RES_WITHOUT_BT_COL_CNT) {
                     alnResults.emplace_back(Matcher::parseAlignmentRecord(data));
                 } else {
+                    if (Parameters::isEqualDbtype(qDbr->getDbtype(), Parameters::DBTYPE_NUCLEOTIDES)) {
+                        Debug(Debug::ERROR) << "Nucleotide alignment results require backtraces\n";
+                        EXIT(EXIT_FAILURE);
+                    }
                     // Recompute if not all the backtraces are present
                     if (isQueryInit == false) {
                         matcher.initQuery(&centerSequence);
@@ -324,7 +338,7 @@ int result2msa(int argc, const char **argv, const Command &command) {
                     // need to allow insertion in the centerSequence
                     for (size_t pos = 0; pos < res.centerLength; pos++) {
                         char aa = res.msaSequence[i][pos];
-                        result.append(1, ((aa < MultipleAlignment::GAP) ? subMat.num2aa[(int) aa] : '-'));
+                        result.append(1, ((aa < MultipleAlignment::GAP) ? subMat->num2aa[(int) aa] : '-'));
                     }
                     result.append(1, '\n');
                 }
@@ -362,7 +376,7 @@ int result2msa(int argc, const char **argv, const Command &command) {
                     // need to allow insertion in the centerSequence
                     for (size_t pos = 0; pos < res.centerLength; pos++) {
                         char aa = res.msaSequence[i][pos];
-                        result.append(1, ((aa < MultipleAlignment::GAP) ? subMat.num2aa[(int) aa] : '-'));
+                        result.append(1, ((aa < MultipleAlignment::GAP) ? subMat->num2aa[(int) aa] : '-'));
                     }
                     result.append(1, '\n');
                 }
@@ -399,7 +413,7 @@ int result2msa(int argc, const char **argv, const Command &command) {
                     if(i == 0){
                         for (size_t pos = 0; pos < res.centerLength; pos++) {
                             char aa = res.msaSequence[i][pos];
-                            result.append(1, ((aa < MultipleAlignment::GAP) ? subMat.num2aa[(int) aa] : '-'));
+                            result.append(1, ((aa < MultipleAlignment::GAP) ? subMat->num2aa[(int) aa] : '-'));
                         }
                         result.append(1, '\n');
                     }else{
@@ -415,7 +429,7 @@ int result2msa(int argc, const char **argv, const Command &command) {
                             if(aa>=MultipleAlignment::GAP){
                                 result.push_back('-');
                             }else if(aa<MultipleAlignment::GAP){
-                                result.push_back( subMat.num2aa[(int) aa]);
+                                result.push_back( subMat->num2aa[(int) aa]);
                                 btPos++;
                                 seqPos++;
                             }
@@ -424,7 +438,7 @@ int result2msa(int argc, const char **argv, const Command &command) {
 
                             // add lower case deletions
                             while(btPos < bt.size() && bt[btPos] == 'D') {
-                                result.push_back(tolower(subMat.num2aa[seq[seqStartPos+seqPos]]));
+                                result.push_back(tolower(subMat->num2aa[seq[seqStartPos+seqPos]]));
                                 btPos++;
                                 seqPos++;
                             }
@@ -449,7 +463,7 @@ int result2msa(int argc, const char **argv, const Command &command) {
                     result.append(">consensus_");
                     result.append(centerSequenceHeader, centerHeaderLength);
                     for (int pos = 0; pos < centerSequence.L; pos++) {
-                        result.push_back(subMat.num2aa[pssmRes.consensus[pos]]);
+                        result.push_back(subMat->num2aa[pssmRes.consensus[pos]]);
                     }
                     result.append("\n;");
                 } else {
@@ -457,7 +471,7 @@ int result2msa(int argc, const char **argv, const Command &command) {
                     result.append(centerSequenceHeader, centerHeaderLength);
                     // Retrieve the master sequence
                     for (int pos = 0; pos < centerSequence.L; pos++) {
-                        result.push_back(subMat.num2aa[centerSequence.numSequence[pos]]);
+                        result.push_back(subMat->num2aa[centerSequence.numSequence[pos]]);
                     }
                     result.append("\n;");
                 }
@@ -491,6 +505,8 @@ int result2msa(int argc, const char **argv, const Command &command) {
         FileUtil::remove(resultWriter.getIndexFileName());
     }
     resultReader.close();
+
+    delete subMat;
 
     if (!sameDatabase) {
         qDbr->close();
