@@ -1,0 +1,41 @@
+# Based on https://github.com/eseiler/seqan3/blob/363c4cf4f05e627a0c483f791e5c3be27938309d/.github/workflows/cron_debian.yml
+
+# SPDX-FileCopyrightText: 2006-2025 Knut Reinert & Freie Universität Berlin
+# SPDX-FileCopyrightText: 2016-2025 Knut Reinert & MPI für molekulare Genetik
+# SPDX-License-Identifier: CC0-1.0
+
+name: Debian
+
+on:
+  push:
+    branches:
+      - "master"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Debian
+    runs-on: ubuntu-latest
+    container:
+      image: debian:unstable
+    steps:
+      - name: Install Essentials
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends build-essential git cmake wget fakeroot ca-certificates
+
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Repo
+        run: |
+          git config --system --add safe.directory '*'
+          git remote add salsa https://salsa.debian.org/med-team/mmseqs2.git
+          git fetch --depth 1 salsa
+          git checkout salsa/master -- debian
+
+      - name: Install Dependencies
+        run: apt-get build-dep --yes --no-install-recommends .
+
+      - name: Build
+        run: dpkg-buildpackage --unsigned-changes --unsigned-source --build=binary
