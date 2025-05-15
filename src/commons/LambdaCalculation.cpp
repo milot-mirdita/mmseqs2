@@ -6,7 +6,7 @@
 #include <numeric>
 #include <set> // TODO: might try using an unordered set. We don't need repeated values, we do one insertion per iteration, and we do one full search per iteration.
 
-#define LambdaCalculation_DEBUG false
+// #define LambdaCalculation_DEBUG 1
 
 struct Probs {
     int alphabet_size;
@@ -272,7 +272,9 @@ bool matrix_solvable_for_lambda(const Matrix& mat_b, double& lambda_upper_bound)
 }
 
 void exponentiate_matrix(const Matrix& score_matrix, const double lambda, Matrix& result) {
+    #ifdef LambdaCalculation_DEBUG
     Debug(Debug::ERROR) << "Computing with lambda = " << lambda << "\n";
+    #endif
     for (int i = 0; i < score_matrix.row_dim; ++i) {
         for (int j = 0; j < score_matrix.col_dim; ++j) {
             result.at(i, j) = std::exp(lambda * score_matrix.at(i, j));
@@ -484,9 +486,12 @@ void Lambda::bisection_search(const Matrix& score_matrix,
     // Initialize to the ~middle of the interval
     value = upper_bound / 2.0;
     for (int iters = 0; iters < max_iters; ++iters){
+        #ifdef LambdaCalculation_DEBUG
         Debug(Debug::ERROR) << "iters: " << iters + 1 << " LB: " << lower_bound << " Val: " << value << " UB: " << upper_bound << "\n";
-                 // Calculate the value of the restriction condition.
-                // TODO: we can short-circuit this by just checking UB, then sign, then and only then checking sum(lb)
+        #endif
+
+        // Calculate the value of the restriction condition.
+        // TODO: we can short-circuit this by just checking UB, then sign, then and only then checking sum(lb)
         double val_sum = restriction_value(p, q, value, score_matrix);
 
         if (iters > min_iters && val_sum - 1.0 < epsilon){
@@ -503,26 +508,36 @@ void Lambda::bisection_search(const Matrix& score_matrix,
         }
         value = (lower_bound + upper_bound) / 2.0;
     }
+    #ifdef LambdaCalculation_DEBUG
     Debug(Debug::ERROR) << "initial value by bisection: " << value << "\n";
+    #endif
 }
 
 void Lambda::newton_refine(const Matrix& score_matrix,
                                 const Probs p,
                                 const Probs q) {
+    #ifdef LambdaCalculation_DEBUG
     Debug(Debug::ERROR) << "Running Newton Refinment.\n";
+    #endif
     for (int iters = 0; iters < max_iters; ++iters){
         double f_lambda = restriction_value(p, q, value, score_matrix);
         double f_prime_lambda = restriction_value_first_derivative(p, q, value, score_matrix);
+        #ifdef LambdaCalculation_DEBUG
         Debug(Debug::ERROR) << "iters: " << iters + 1 << " LB: " << lower_bound << " Val: " << value << " UB: " << upper_bound <<  " F " << f_lambda << " F' " << f_prime_lambda << "\n";
+        #endif
 
         if (std::fabs(f_lambda) < epsilon){
             converged = true;
+            #ifdef LambdaCalculation_DEBUG
             Debug(Debug::ERROR) << "converged.\n"; 
+            #endif
             break;
         }
         if (std::find(convergence_history.begin(), convergence_history.end(), value) != convergence_history.end()){
             converged = true;
+            #ifdef LambdaCalculation_DEBUG
             Debug(Debug::ERROR) << "converged by oscillation.\n";
+            #endif
             break;
         }
         convergence_history.insert(value);
@@ -531,5 +546,7 @@ void Lambda::newton_refine(const Matrix& score_matrix,
         step = signer(step) * std::min(std::fabs(f_lambda / f_prime_lambda), 0.01);
         value = value - step;
     }
+    #ifdef LambdaCalculation_DEBUG
     Debug(Debug::ERROR) << "final value: " << value << "\n";
+    #endif
 }
