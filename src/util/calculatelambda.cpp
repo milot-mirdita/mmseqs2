@@ -30,7 +30,7 @@ int calculatelambda(int argc, const char **argv, const Command &command) {
     fclose(infile);
 
     char tmpname[] = "/tmp/matrixXXXXXX.out";
-    int fd = mkstemp(tmpname);
+    int fd = mkstemps(tmpname, strlen(".out"));
     if (fd == -1) {
         fprintf(stderr, "Failed to create temporary file\n");
         return EXIT_FAILURE;
