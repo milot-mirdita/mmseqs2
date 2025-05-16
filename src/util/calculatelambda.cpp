@@ -1,22 +1,18 @@
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-#include <unistd.h>
-
 #include "Debug.h"
 #include "Util.h"
 #include "FileUtil.h"
 #include "SubstitutionMatrix.h"
 
-const char *binary_name = "test_lambdacalculator";
+#include <cstdio>
+#include <cstdlib>
+#include <string>
+#include <unistd.h>
 
-int main(int argc, const char ** argv) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <matrix_file>\n", binary_name);
-        return EXIT_FAILURE;
-    }
+int calculatelambda(int argc, const char **argv, const Command &command) {
+    Parameters &par = Parameters::getInstance();
+    par.parseParameters(argc, argv, command, false, 0, 0);
 
-    FILE* infile = FileUtil::openFileOrDie(argv[1], "r", true);
+    FILE* infile = FileUtil::openFileOrDie(par.db1.c_str(), "r", true);
 
     std::string filtered_content;
     char* line = nullptr;
@@ -60,5 +56,5 @@ int main(int argc, const char ** argv) {
     fclose(tmpfile);
     unlink(tmpname);
 
-    return EXIT_SUCCESS;
+    EXIT(EXIT_SUCCESS);
 }
