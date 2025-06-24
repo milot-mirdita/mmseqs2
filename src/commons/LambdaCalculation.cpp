@@ -265,13 +265,13 @@ bool matrix_solvable_for_lambda(const Matrix& mat_b, double& lambda_upper_bound)
     );
 
     
-    if (count_positive > 0) {
+    // if (count_positive > 0) {
         // Use the average positive score to estimate a reasonable upper bound
         // double avg_positive = sum_positive / count_positive;
         // For BLOSUM62-like matrices, lambda tends to be around 0.3-0.4
         // So we'll set the upper bound to 1.0 to ensure we include the expected range
         // lambda.upper_bound = 1.0;
-    }
+    // }
     
     #ifdef LambdaCalculation_DEBUG
     Debug(Debug::ERROR) << "Matrix is solvable. Upper bound: " << lambda_upper_bound << "\n";
@@ -424,7 +424,8 @@ void compute_joint_probabilities(
 void compute_background_probabilities(
     const Matrix& joint_prob_matrix,
     std::vector<double>& p,
-    std::vector<double>& q) {
+    std::vector<double>& q,
+    bool normalize = true) {
     p.resize(joint_prob_matrix.row_dim, 0.0);
     q.resize(joint_prob_matrix.col_dim, 0.0);
     
@@ -434,6 +435,29 @@ void compute_background_probabilities(
             q[j] += joint_prob_matrix.at(i, j);
         }
     }
+    
+    if (normalize) {
+        // Compute sums for normalization
+        double sum_p = 0.0, sum_q = 0.0;
+        for (int i = 0; i < joint_prob_matrix.row_dim; ++i) {
+            sum_p += p[i];
+        }
+        for (int j = 0; j < joint_prob_matrix.col_dim; ++j) {
+            sum_q += q[j];
+        }
+        
+        // Normalize to ensure probabilities sum to 1
+        if (sum_p > 0.0) {
+            for (int i = 0; i < joint_prob_matrix.row_dim; ++i) {
+                p[i] /= sum_p;
+            }
+        }
+        if (sum_q > 0.0) {
+            for (int j = 0; j < joint_prob_matrix.col_dim; ++j) {
+                q[j] /= sum_q;
+            }
+        }
+    }
 }
 
 double calculate_lambda(
@@ -441,6 +465,7 @@ double calculate_lambda(
     const int alpha_size,
     std::vector<double>& p,
     std::vector<double>& q) {
+
     if (alpha_size <= 0) {
         return -1.0;
     }
@@ -457,6 +482,12 @@ double calculate_lambda(
         if (!matrix_solvable_for_lambda(score_matrix, lambda_upper_bound)) {
             return -1.0;
         }
+
+        // TODO: Find all possible roots.
+
+        // Iterate over roots
+
+        
         
         // Initialize lambda to midpoint
         Lambda lambda_calc;
@@ -475,221 +506,221 @@ double calculate_lambda(
         
         // Compute final probabilities
         compute_joint_probabilities(score_matrix, lambda_calc.value, joint_probs);
-        compute_background_probabilities(joint_probs, p, q);
+        compute_background_probabilities(joint_probs, p, q, true);
         
         // Normalize probabilities
-        double sum_p = 0.0, sum_q = 0.0;
-        for (int i = 0; i < alpha_size; ++i) {
-            sum_p += new_p[i];
-            sum_q += new_q[i];
-        }
+        // double sum_p = 0.0, sum_q = 0.0;
+        // for (int i = 0; i < alpha_size; ++i) {
+        //     sum_p += new_p[i];
+        //     sum_q += new_q[i];
+        // }
         
-        for (int i = 0; i < alpha_size; ++i) {
-            p[i] = new_p[i] / sum_p;
-            q[i] = new_q[i] / sum_q;
-        }
+        // for (int i = 0; i < alpha_size; ++i) {
+        //     p[i] = new_p[i] / sum_p;
+        //     q[i] = new_q[i] / sum_q;
+        // }
         
-        iteration++;
-    }
+        // iteration++;
+    // }
     
-    return lambda;
+    return lambda_calc.value;
 }
 
-double calculate_lambda_direct(
-    const double** raw_mat_b,
-    const int alpha_size,
-    std::vector<double>& p,
-    std::vector<double>& q) {
-    if (alpha_size <= 0) {
-        return -1.0;
-    }
+// double calculate_lambda_direct(
+//     const double** raw_mat_b,
+//     const int alpha_size,
+//     std::vector<double>& p,
+//     std::vector<double>& q) {
+//     if (alpha_size <= 0) {
+//         return -1.0;
+//     }
     
-    // Convert input matrix to our Matrix class
-    Matrix score_matrix(alpha_size, alpha_size);
-    score_matrix.copy_from(raw_mat_b);
+//     // Convert input matrix to our Matrix class
+//     Matrix score_matrix(alpha_size, alpha_size);
+//     score_matrix.copy_from(raw_mat_b);
     
-    // Initialize background probabilities with standard amino acid frequencies
-    // These are the standard background frequencies used in BLOSUM62
-    const double background_freqs[20] = {
-        0.078,  // A
-        0.051,  // R
-        0.041,  // N
-        0.052,  // D
-        0.024,  // C
-        0.034,  // Q
-        0.059,  // E
-        0.083,  // G
-        0.025,  // H
-        0.062,  // I
-        0.092,  // L
-        0.056,  // K
-        0.024,  // M
-        0.044,  // F
-        0.043,  // P
-        0.059,  // S
-        0.055,  // T
-        0.014,  // W
-        0.034,  // Y
-        0.072   // V
-    };
+//     // Initialize background probabilities with standard amino acid frequencies
+//     // These are the standard background frequencies used in BLOSUM62
+//     const double background_freqs[20] = {
+//         0.078,  // A
+//         0.051,  // R
+//         0.041,  // N
+//         0.052,  // D
+//         0.024,  // C
+//         0.034,  // Q
+//         0.059,  // E
+//         0.083,  // G
+//         0.025,  // H
+//         0.062,  // I
+//         0.092,  // L
+//         0.056,  // K
+//         0.024,  // M
+//         0.044,  // F
+//         0.043,  // P
+//         0.059,  // S
+//         0.055,  // T
+//         0.014,  // W
+//         0.034,  // Y
+//         0.072   // V
+//     };
     
-    p.resize(alpha_size);
-    q.resize(alpha_size);
+//     p.resize(alpha_size);
+//     q.resize(alpha_size);
     
-    // Copy the background frequencies
-    for (int i = 0; i < std::min(20, alpha_size); ++i) {
-        p[i] = background_freqs[i];
-        q[i] = background_freqs[i];
-    }
+//     // Copy the background frequencies
+//     for (int i = 0; i < std::min(20, alpha_size); ++i) {
+//         p[i] = background_freqs[i];
+//         q[i] = background_freqs[i];
+//     }
     
-    // If alpha_size > 20 (e.g., including gap), initialize remaining positions uniformly
-    if (alpha_size > 20) {
-        double remaining_prob = 1.0;
-        for (int i = 0; i < 20; ++i) {
-            remaining_prob -= background_freqs[i];
-        }
-        double uniform_prob = remaining_prob / (alpha_size - 20);
-        for (int i = 20; i < alpha_size; ++i) {
-            p[i] = uniform_prob;
-            q[i] = uniform_prob;
-        }
-    }
+//     // If alpha_size > 20 (e.g., including gap), initialize remaining positions uniformly
+//     if (alpha_size > 20) {
+//         double remaining_prob = 1.0;
+//         for (int i = 0; i < 20; ++i) {
+//             remaining_prob -= background_freqs[i];
+//         }
+//         double uniform_prob = remaining_prob / (alpha_size - 20);
+//         for (int i = 20; i < alpha_size; ++i) {
+//             p[i] = uniform_prob;
+//             q[i] = uniform_prob;
+//         }
+//     }
     
-    // Normalize to ensure probabilities sum to 1
-    double sum_p = 0.0, sum_q = 0.0;
-    for (int i = 0; i < alpha_size; ++i) {
-        sum_p += p[i];
-        sum_q += q[i];
-    }
-    for (int i = 0; i < alpha_size; ++i) {
-        p[i] /= sum_p;
-        q[i] /= sum_q;
-    }
+//     // Normalize to ensure probabilities sum to 1
+//     double sum_p = 0.0, sum_q = 0.0;
+//     for (int i = 0; i < alpha_size; ++i) {
+//         sum_p += p[i];
+//         sum_q += q[i];
+//     }
+//     for (int i = 0; i < alpha_size; ++i) {
+//         p[i] /= sum_p;
+//         q[i] /= sum_q;
+//     }
     
-    const double epsilon = 1e-6;
-    const int max_iterations = 100;
-    int iteration = 0;
-    double lambda = 0.0;
-    double prev_lambda = 0.0;
+//     const double epsilon = 1e-6;
+//     const int max_iterations = 100;
+//     int iteration = 0;
+//     double lambda = 0.0;
+//     double prev_lambda = 0.0;
     
-    // Find maximum absolute score for scaling
-    double max_score = 0.0;
-    for (int i = 0; i < alpha_size; ++i) {
-        for (int j = 0; j < alpha_size; ++j) {
-            max_score = std::max(max_score, std::abs(score_matrix.at(i, j)));
-        }
-    }
+//     // Find maximum absolute score for scaling
+//     double max_score = 0.0;
+//     for (int i = 0; i < alpha_size; ++i) {
+//         for (int j = 0; j < alpha_size; ++j) {
+//             max_score = std::max(max_score, std::abs(score_matrix.at(i, j)));
+//         }
+//     }
     
-    // Scale factor to prevent overflow
-    const double scale = 1.0 / max_score;
+//     // Scale factor to prevent overflow
+//     const double scale = 1.0 / max_score;
     
-    #ifdef LambdaCalculation_DEBUG
-    Debug(Debug::ERROR) << "Initial background probabilities:\n";
-    for (int i = 0; i < alpha_size; ++i) {
-        Debug(Debug::ERROR) << "p[" << i << "]=" << p[i] << ", q[" << i << "]=" << q[i] << "\n";
-    }
-    #endif
+//     #ifdef LambdaCalculation_DEBUG
+//     Debug(Debug::ERROR) << "Initial background probabilities:\n";
+//     for (int i = 0; i < alpha_size; ++i) {
+//         Debug(Debug::ERROR) << "p[" << i << "]=" << p[i] << ", q[" << i << "]=" << q[i] << "\n";
+//     }
+//     #endif
     
-    while (iteration < max_iterations) {
-        // Find lambda that satisfies sum(p_i * p_j * exp(lambda * s_ij)) = 1
-        double lambda_low = 0.0;
-        double lambda_high = 1.0;
-        double sum;
+//     while (iteration < max_iterations) {
+//         // Find lambda that satisfies sum(p_i * p_j * exp(lambda * s_ij)) = 1
+//         double lambda_low = 0.0;
+//         double lambda_high = 1.0;
+//         double sum;
         
-        // Bisection search for lambda
-        for (int bisect_iter = 0; bisect_iter < 50; ++bisect_iter) {
-            lambda = (lambda_low + lambda_high) / 2.0;
+//         // Bisection search for lambda
+//         for (int bisect_iter = 0; bisect_iter < 50; ++bisect_iter) {
+//             lambda = (lambda_low + lambda_high) / 2.0;
             
-            // Calculate sum for current lambda, using scaled values
-            sum = 0.0;
-            double max_exp = -std::numeric_limits<double>::infinity();
+//             // Calculate sum for current lambda, using scaled values
+//             sum = 0.0;
+//             double max_exp = -std::numeric_limits<double>::infinity();
             
-            // First pass: find maximum exponent to prevent overflow
-            for (int i = 0; i < alpha_size; ++i) {
-                for (int j = 0; j < alpha_size; ++j) {
-                    double exp_term = lambda * score_matrix.at(i, j) * scale;
-                    max_exp = std::max(max_exp, exp_term);
-                }
-            }
+//             // First pass: find maximum exponent to prevent overflow
+//             for (int i = 0; i < alpha_size; ++i) {
+//                 for (int j = 0; j < alpha_size; ++j) {
+//                     double exp_term = lambda * score_matrix.at(i, j) * scale;
+//                     max_exp = std::max(max_exp, exp_term);
+//                 }
+//             }
             
-            // Second pass: calculate sum with scaling
-            for (int i = 0; i < alpha_size; ++i) {
-                for (int j = 0; j < alpha_size; ++j) {
-                    double exp_term = lambda * score_matrix.at(i, j) * scale;
-                    sum += p[i] * q[j] * std::exp(exp_term - max_exp);
-                }
-            }
+//             // Second pass: calculate sum with scaling
+//             for (int i = 0; i < alpha_size; ++i) {
+//                 for (int j = 0; j < alpha_size; ++j) {
+//                     double exp_term = lambda * score_matrix.at(i, j) * scale;
+//                     sum += p[i] * q[j] * std::exp(exp_term - max_exp);
+//                 }
+//             }
             
-            // Scale back the sum
-            sum *= std::exp(max_exp);
+//             // Scale back the sum
+//             sum *= std::exp(max_exp);
             
-            #ifdef LambdaCalculation_DEBUG
-            Debug(Debug::ERROR) << "Bisect " << bisect_iter << ": lambda=" << lambda << ", sum=" << sum << "\n";
-            #endif
+//             #ifdef LambdaCalculation_DEBUG
+//             Debug(Debug::ERROR) << "Bisect " << bisect_iter << ": lambda=" << lambda << ", sum=" << sum << "\n";
+//             #endif
             
-            if (std::abs(sum - 1.0) < epsilon) {
-                break;
-            }
+//             if (std::abs(sum - 1.0) < epsilon) {
+//                 break;
+//             }
             
-            if (sum > 1.0) {
-                lambda_high = lambda;
-            } else {
-                lambda_low = lambda;
-            }
-        }
+//             if (sum > 1.0) {
+//                 lambda_high = lambda;
+//             } else {
+//                 lambda_low = lambda;
+//             }
+//         }
         
-        // Update background probabilities using current lambda
-        std::vector<double> new_p(alpha_size, 0.0);
-        std::vector<double> new_q(alpha_size, 0.0);
+//         // Update background probabilities using current lambda
+//         std::vector<double> new_p(alpha_size, 0.0);
+//         std::vector<double> new_q(alpha_size, 0.0);
         
-        // Calculate new background probabilities with scaling
-        double max_exp = -std::numeric_limits<double>::infinity();
+//         // Calculate new background probabilities with scaling
+//         double max_exp = -std::numeric_limits<double>::infinity();
         
-        // First pass: find maximum exponent
-        for (int i = 0; i < alpha_size; ++i) {
-            for (int j = 0; j < alpha_size; ++j) {
-                double exp_term = lambda * score_matrix.at(i, j) * scale;
-                max_exp = std::max(max_exp, exp_term);
-            }
-        }
+//         // First pass: find maximum exponent
+//         for (int i = 0; i < alpha_size; ++i) {
+//             for (int j = 0; j < alpha_size; ++j) {
+//                 double exp_term = lambda * score_matrix.at(i, j) * scale;
+//                 max_exp = std::max(max_exp, exp_term);
+//             }
+//         }
         
-        // Second pass: calculate probabilities
-        for (int i = 0; i < alpha_size; ++i) {
-            for (int j = 0; j < alpha_size; ++j) {
-                double exp_term = lambda * score_matrix.at(i, j) * scale;
-                double term = p[i] * q[j] * std::exp(exp_term - max_exp);
-                new_p[i] += term;
-                new_q[j] += term;
-            }
-        }
+//         // Second pass: calculate probabilities
+//         for (int i = 0; i < alpha_size; ++i) {
+//             for (int j = 0; j < alpha_size; ++j) {
+//                 double exp_term = lambda * score_matrix.at(i, j) * scale;
+//                 double term = p[i] * q[j] * std::exp(exp_term - max_exp);
+//                 new_p[i] += term;
+//                 new_q[j] += term;
+//             }
+//         }
         
-        // Normalize probabilities
-        double sum_p = 0.0, sum_q = 0.0;
-        for (int i = 0; i < alpha_size; ++i) {
-            sum_p += new_p[i];
-            sum_q += new_q[i];
-        }
+//         // Normalize probabilities
+//         double sum_p = 0.0, sum_q = 0.0;
+//         for (int i = 0; i < alpha_size; ++i) {
+//             sum_p += new_p[i];
+//             sum_q += new_q[i];
+//         }
         
-        for (int i = 0; i < alpha_size; ++i) {
-            p[i] = new_p[i] / sum_p;
-            q[i] = new_q[i] / sum_q;
-        }
+//         for (int i = 0; i < alpha_size; ++i) {
+//             p[i] = new_p[i] / sum_p;
+//             q[i] = new_q[i] / sum_q;
+//         }
         
-        #ifdef LambdaCalculation_DEBUG
-        Debug(Debug::ERROR) << "Iteration " << iteration << ": lambda=" << lambda << ", sum=" << sum << "\n";
-        #endif
+//         #ifdef LambdaCalculation_DEBUG
+//         Debug(Debug::ERROR) << "Iteration " << iteration << ": lambda=" << lambda << ", sum=" << sum << "\n";
+//         #endif
         
-        // Check for convergence of lambda
-        if (std::abs(lambda - prev_lambda) < epsilon) {
-            break;
-        }
+//         // Check for convergence of lambda
+//         if (std::abs(lambda - prev_lambda) < epsilon) {
+//             break;
+//         }
         
-        prev_lambda = lambda;
-        iteration++;
-    }
+//         prev_lambda = lambda;
+//         iteration++;
+//     }
     
-    return lambda;
-}
+//     return lambda;
+// }
 
 void Lambda::bisection_search(const Matrix& score_matrix,
                                 const Probs p,
