@@ -698,8 +698,8 @@ double find_lambda_newton_raphson(const Matrix score_matrix, const Probs p,
 
 double calculate_lambda(const double **raw_mat_b, const int alpha_size,
                         std::vector<double> &final_p,
-                        std::vector<double> &final_q, double eps,
-                        const int min_em_iters, const int max_em_iters) {
+                        std::vector<double> &final_q,
+                        double eps) {
   if (alpha_size <= 0) {
     LambdaDebug::log("Invalid alphabet size: ", alpha_size);
     return -1.0;

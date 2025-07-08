@@ -17,9 +17,7 @@ double calculate_lambda(
     const int alpha_size,
     std::vector<double>& final_p,
     std::vector<double>& final_q,
-    double eps = 1e-12,
-    const int min_em_iters = 1,
-    const int max_em_iters = 200
+    double eps = 1e-12
 );
 
 #endif
