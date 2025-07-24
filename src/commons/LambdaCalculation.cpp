@@ -1203,7 +1203,7 @@ double calculate_lambda(const double **raw_mat_b, const int alpha_size,
   }
   
   // First, bracket lambda
-  double lambda_low = 0.0;
+  double lambda_low = LambdaCalculationConstants::LAMBDA_LOWER_BOUND;
   double lambda_high = LambdaCalculationConstants::BRACKET_START_LAMBDA;
   if (!LambdaFinder::bracket_lambda(score_matrix, p, q, lambda_low, lambda_high, lambda_upper_bound)) {
     LambdaDebug::log("Failed to bracket lambda");
