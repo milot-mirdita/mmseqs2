@@ -63,7 +63,7 @@ public:
         // we need a non-strict-weak ordering function here
         // so our upper_bound call works correctly
         static bool compareByIdOnly(const Index &x, const Index &y) {
-            return x.id <= y.id;
+            return x.id < y.id;
         }
 
         static bool compareById(const Index &x, const Index &y) {
@@ -120,7 +120,7 @@ public:
         // we need a non-strict-weak ordering function here
         // so our upper_bound call works correctly
         static bool compareByIdOnly(const LookupEntry& x, const LookupEntry& y) {
-            return x.id <= y.id;
+            return x.id < y.id;
         }
 
         static bool compareById(const LookupEntry& x, const LookupEntry& y) {

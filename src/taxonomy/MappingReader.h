@@ -80,7 +80,7 @@ public:
         Pair val;
         val.dbkey = key;
         Pair* end = entries + count;
-        Pair* found = std::upper_bound(entries, end, val, compareTaxa);
+        Pair* found = std::lower_bound(entries, end, val, compareTaxa);
         if (found == end || found->dbkey != key) {
             taxon = 0;
         } else {
@@ -101,7 +101,7 @@ private:
     const char magic[5] = {19, 0, 23, 12, 0};
     const size_t magicLen = 5;
     static bool compareTaxa(const Pair &lhs, const Pair &rhs) {
-        return (lhs.dbkey <= rhs.dbkey);
+        return (lhs.dbkey < rhs.dbkey);
     }
 };
 

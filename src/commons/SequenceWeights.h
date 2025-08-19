@@ -12,7 +12,7 @@ public:
         float weight;
 
         static bool compareByIdOnly(const WeightIndexEntry &x, const WeightIndexEntry &y) {
-            return x.id <= y.id;
+            return x.id < y.id;
         }
     };
 

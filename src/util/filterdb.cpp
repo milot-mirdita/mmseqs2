@@ -57,7 +57,7 @@ ComparisonOperator mapOperator(const std::string& op) {
 
 struct compareString {
     bool operator() (const std::string& lhs, const std::string& rhs) const{
-        return (lhs.compare(rhs) <= 0);
+        return (lhs.compare(rhs) < 0);
     }
 };
 
@@ -420,7 +420,8 @@ int filterdb(int argc, const char **argv, const Command &command) {
                     }
                 } else if (mode == FILE_FILTERING) {
                     std::string toSearch(columnValue);
-                    std::vector<std::string>::iterator it = std::upper_bound(filter.begin(), filter.end(), toSearch, compareString());
+                    std::vector<std::string>::const_iterator it
+                        = std::lower_bound(filter.begin(), filter.end(), toSearch, compareString());
                     if (it != filter.end() && toSearch.compare(*it) == 0) {
                         // Found in filter
                         if (positiveFiltering) {

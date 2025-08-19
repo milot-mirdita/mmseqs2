@@ -529,7 +529,7 @@ template <typename T> size_t DBReader<T>::bsearch(const Index * index, size_t N,
 {
     Index val;
     val.id = value;
-    return std::upper_bound(index, index + N, val, Index::compareByIdOnly) - index;
+    return std::lower_bound(index, index + N, val, Index::compareByIdOnly) - index;
 }
 
 
@@ -694,7 +694,7 @@ template <typename T> size_t DBReader<T>::getLookupIdByKey(T dbKey) {
     }
     LookupEntry val;
     val.id = dbKey;
-    size_t id = std::upper_bound(lookup, lookup + lookupSize, val, LookupEntry::compareByIdOnly) - lookup;
+    size_t id = std::lower_bound(lookup, lookup + lookupSize, val, LookupEntry::compareByIdOnly) - lookup;
 
     return (id < lookupSize && lookup[id].id == dbKey) ? id : SIZE_MAX;
 }
@@ -706,7 +706,7 @@ template <typename T> size_t DBReader<T>::getLookupIdByAccession(const std::stri
     }
     LookupEntry val;
     val.entryName = accession;
-    size_t id = std::upper_bound(lookup, lookup + lookupSize, val, LookupEntry::compareByAccessionOnly) - lookup;
+    size_t id = std::lower_bound(lookup, lookup + lookupSize, val, LookupEntry::compareByAccessionOnly) - lookup;
 
     return (id < lookupSize && lookup[id].entryName.compare(accession) == 0) ? id : SIZE_MAX;
 }

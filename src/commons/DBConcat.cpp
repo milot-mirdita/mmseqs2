@@ -347,22 +347,29 @@ unsigned int DBConcat::dbAKeyMap(unsigned int key) {
     if (sameDatabase)
         return key;
 
-    std::pair<unsigned int, unsigned int> *originalMap = std::upper_bound(keysA, keysA + indexSizeA, key, compareKeyToFirstEntry());
-    return originalMap->second;
+    std::pair<unsigned int, unsigned int> *it
+        = std::lower_bound(keysA, keysA + indexSizeA, std::make_pair(key, 0u), compareFirstEntry{});
+    if (it == keysA + indexSizeA || it->first != key) {
+        Debug(Debug::ERROR) << "Key " << key << " not found in A\n";
+        EXIT(EXIT_FAILURE);
+    }
+    return it->second;
 }
 
 unsigned int DBConcat::dbBKeyMap(unsigned int key) {
-    if (sameDatabase)
+    if (sameDatabase) {
         return key;
-
-    std::pair<unsigned int, unsigned int> *originalMap = std::upper_bound(keysB, keysB + indexSizeB, key, compareKeyToFirstEntry());
-    return originalMap->second;
+    }
+    std::pair<unsigned int, unsigned int> *it 
+        = std::lower_bound(keysB, keysB + indexSizeB, std::make_pair(key, 0u), compareFirstEntry{});
+    if (it == keysB + indexSizeB || it->first != key) {
+        Debug(Debug::ERROR) << "Key " << key << " not found in B\n";
+        EXIT(EXIT_FAILURE);
+    }
+    return it->second;
 }
 
 DBConcat::~DBConcat() {
-    if (sameDatabase) {
-        return;
-    }
     delete[] keysA;
     delete[] keysB;
 }
