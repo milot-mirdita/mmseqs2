@@ -30,12 +30,6 @@ private:
             return (lhs.first < rhs.first);
         }
     };
-
-    struct compareKeyToFirstEntry {
-        bool operator()(const unsigned int &lhs, const std::pair<unsigned int, unsigned int> &rhs) const {
-            return (lhs <= rhs.first);
-        }
-    };
 };
 
 #endif

@@ -13,7 +13,7 @@
 #endif
 
 static bool compareToFirstString(const std::pair<std::string, TaxID>& lhs, const std::pair<std::string, TaxID>& rhs){
-    return (lhs.first <= rhs.first);
+    return (lhs.first < rhs.first);
 }
 
 static bool sortMappingByDbKey(const std::pair<unsigned int, TaxID>& lhs, const std::pair<unsigned int, TaxID>& rhs){
@@ -36,7 +36,7 @@ TaxID lookupTaxID(const std::vector<std::pair<std::string, TaxID>>& mapping, con
     std::pair<std::string, TaxID> val;
     val.first = value;
     std::vector<std::pair<std::string, TaxID>>::const_iterator mappingIt
-        = std::upper_bound(mapping.begin(), mapping.end(), val, compareToFirstString);
+        = std::lower_bound(mapping.begin(), mapping.end(), val, compareToFirstString);
     if (mappingIt == mapping.end() || mappingIt->first != val.first) {
         return 0;
     } else {

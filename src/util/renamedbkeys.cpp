@@ -9,7 +9,7 @@
 #include <climits>
 
 static bool compareToFirst(const std::pair<unsigned int, unsigned int>& lhs, const std::pair<unsigned int, unsigned int>& rhs){
-    return (lhs.first <= rhs.first);
+    return (lhs.first < rhs.first);
 }
 
 void copyEntry(unsigned int oldKey, unsigned int newKey, DBReader<unsigned int>& reader, DBWriter& writer, bool isCompressed, int subDbMode) {
@@ -121,7 +121,7 @@ int renamedbkeys(int argc, const char **argv, const Command &command) {
             std::pair<unsigned int, unsigned int> val;
             val.first = oldKey;
             std::vector<std::pair<unsigned int, unsigned int>>::iterator mappingIt;
-            mappingIt = std::upper_bound(mapping.begin(), mapping.end(), val, compareToFirst);
+            mappingIt = std::lower_bound(mapping.begin(), mapping.end(), val, compareToFirst);
             if (mappingIt != mapping.end() && mappingIt->first == val.first) {
                 val.first = newKey;
                 val.second = mappingIt->second;
