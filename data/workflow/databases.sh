@@ -124,16 +124,21 @@ case "${SELECTION}" in
         INPUT_TYPE="FASTA_LIST"
     ;;
     "NR")
-        if notExists "${TMP_PATH}/nr.gz"; then
-            date "+%s" > "${TMP_PATH}/version"
-            downloadFile "https://ftp.ncbi.nlm.nih.gov/blast/db/FASTA/nr.gz" "${TMP_PATH}/nr.gz"
-            downloadFile "https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession2taxid/prot.accession2taxid.gz" "${TMP_PATH}/prot.accession2taxid.gz"
-            gunzip "${TMP_PATH}/prot.accession2taxid.gz"
-            downloadFile "https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession2taxid/pdb.accession2taxid.gz" "${TMP_PATH}/pdb.accession2taxid.gz"
-            gunzip "${TMP_PATH}/pdb.accession2taxid.gz"
+        if notExists "${TMP_PATH}/nr.pal"; then
+            downloadFile "https://ftp.ncbi.nlm.nih.gov/blast/db/nr-prot-metadata.json" "${TMP_PATH}/version"
+            grep -F ".tar.gz" "${TMP_PATH}/version" | cut -f2 -d\" | sed 's|^ftp:|https:|g' > "${TMP_PATH}/nr_files.txt"
+            OLDIFS="${IFS}"
+            IFS="$(printf '\n')"
+            while read -r URL; do
+                FILENAME=$(basename "${URL}")
+                downloadFile "${URL}" "${TMP_PATH}/${FILENAME}"
+                tar -C "${TMP_PATH}" -xzf "${TMP_PATH}/${FILENAME}"
+                rm -f "${TMP_PATH}/${FILENAME}"
+            done < "${TMP_PATH}/nr_files.txt"
+            IFS="${OLDIFS}"
         fi
-        push_back "${TMP_PATH}/nr.gz"
-        INPUT_TYPE="FASTA_LIST"
+        push_back "${TMP_PATH}/nr"
+        INPUT_TYPE="BLASTDB"
     ;;
     "NT")
         if notExists "${TMP_PATH}/nt.gz"; then
@@ -393,6 +398,12 @@ case "${INPUT_TYPE}" in
                 || fail "rmdb died"
         fi
     ;;
+    "BLASTDB")
+        eval "set -- $ARR"
+        # shellcheck disable=SC2086
+        "${MMSEQS}" convertblastdb "${@}" "${OUTDB}" ${THREADS_PAR} \
+            || fail "convertblastdb died"
+    ;;
 esac
 fi
 
@@ -426,13 +437,9 @@ if [ -n "${TAXONOMY}" ] && notExists "${OUTDB}_mapping"; then
         "${MMSEQS}" createtaxdb "${OUTDB}" "${TMP_PATH}/taxdb" --ncbi-tax-dump "${TMP_PATH}/taxonomy" --tax-mapping-file "${TMP_PATH}/silva.acc_taxid" ${THREADS_PAR}
        ;;
      "NR")
-        touch "${OUTDB}_mapping"
         # shellcheck disable=SC2086
         "${MMSEQS}" createtaxdb "${OUTDB}" "${TMP_PATH}/taxonomy" ${THREADS_PAR} \
             || fail "createtaxdb died"
-        # shellcheck disable=SC2086
-        "${MMSEQS}" nrtotaxmapping "${TMP_PATH}/pdb.accession2taxid" "${TMP_PATH}/prot.accession2taxid" "${OUTDB}" "${OUTDB}_mapping" ${THREADS_PAR} \
-            || fail "nrtotaxmapping died"
        ;;
      "GTDB")
           # shellcheck disable=SC2016
