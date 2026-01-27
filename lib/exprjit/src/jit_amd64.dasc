@@ -1,0 +1,286 @@
+#include "dynasm/dasm_x86.h"
+
+|.arch x64
+|.actionlist ej_compile_actionlist
+|.section code
+|.globals GLOB_
+
+static void emit(Dst_DECL, uint64_t* op) {
+  | .macro logic, imm, first, second
+  |   pop     rax
+  |   movd    xmm0, rax
+  |   pop     rax
+  |   movd    xmm1, rax
+  |   cmpsd   first, second, imm
+  |   mov64   rax, 0x3ff0000000000000
+  |   movd    second, rax
+  |   andpd   xmm0, xmm1
+  |   movd    rax, xmm0
+  |   push    rax
+  | .endmacro
+  | .macro arith, ins
+  |   pop     rax
+  |   movd    xmm1, rax
+  |   pop     rax
+  |   movd    xmm0, rax
+  |   ins   xmm0, xmm1
+  |   movd    rax, xmm0
+  |   push    rax
+  | .endmacro
+  | .macro saveregs
+  |   push rbp; push rdi; push rsi; push rbx; push r12; push r13; push r14; push r15
+  |   mov      rbp, rsp
+  | .endmacro
+  | .macro restoreregs
+  |   mov      rsp, rbp
+  |   pop r15; pop r14; pop r13; pop r12; pop rbx; pop rsi; pop rdi; pop rbp
+  | .endmacro
+  | .macro callop
+  |   saveregs
+  |   xor      rax, rax
+  |   mov      r12, rsp
+  |   and      rsp, -16
+  |   mov64    rsi, *op
+  |   call     rsi
+  |   mov      rsp, r12
+  |   restoreregs
+  |   movd     rax, xmm0
+  |   push     rax
+  | .endmacro
+  | saveregs
+  while (1) {
+    switch (*op) {
+      case OP_pos:
+        | .nop
+        break;
+      case OP_neg:
+        | pop     rax
+        | movd    xmm1, rax
+        | xorps   xmm0, xmm0
+        | subsd   xmm0, xmm1
+        | movd    rax, xmm0
+        | push    rax
+        break;
+      case OP_add:
+        | arith   addsd
+        break;
+      case OP_sub:
+        | arith   subsd
+        break;
+      case OP_mul:
+        | arith   mulsd
+        break;
+      case OP_div:
+        | arith   divsd
+        break;
+      case OP_var:
+        op++;
+        | mov64   rax, *op
+        | mov     rax, [rax]
+        | push    rax
+        break;
+      case OP_con:
+        op++;
+        | mov64    rax, *op
+        | push     rax
+        break;
+      case OP_ret:
+        | pop      rax
+        | movd     xmm0, rax
+        | restoreregs
+        | ret
+        return;
+
+      case OP_clo0:
+        op++;
+        | mov64    rdi, *op
+      case OP_fun0:
+        op++;
+        | callop
+        break;
+      case OP_clo1:
+        op++;
+        | mov64    rdi, *op
+      case OP_fun1:
+        op++;
+        | pop      rax
+        | movd     xmm0, rax
+        | callop
+        break;
+      case OP_clo2:
+        op++;
+        | mov64    rdi, *op
+      case OP_fun2:
+        op++;
+        | pop      rax
+        | movd     xmm1, rax
+        | pop      rax
+        | movd     xmm0, rax
+        | callop
+        break;
+      case OP_clo3:
+        op++;
+        | mov64    rdi, *op
+      case OP_fun3:
+        op++;
+        | pop      rax
+        | movd     xmm2, rax
+        | pop      rax
+        | movd     xmm1, rax
+        | pop      rax
+        | movd     xmm0, rax
+        | callop
+        break;
+      case OP_clo4:
+        op++;
+        | mov64    rdi, *op
+      case OP_fun4:
+        op++;
+        | pop      rax
+        | movd     xmm3, rax
+        | pop      rax
+        | movd     xmm2, rax
+        | pop      rax
+        | movd     xmm1, rax
+        | pop      rax
+        | movd     xmm0, rax
+        | callop
+        break;
+      case OP_clo5:
+        op++;
+        | mov64    rdi, *op
+      case OP_fun5:
+        op++;
+        | pop      rax
+        | movd     xmm4, rax
+        | pop      rax
+        | movd     xmm3, rax
+        | pop      rax
+        | movd     xmm2, rax
+        | pop      rax
+        | movd     xmm1, rax
+        | pop      rax
+        | movd     xmm0, rax
+        | callop
+        break;
+      case OP_clo6:
+        op++;
+        | mov64    rdi, *op
+      case OP_fun6:
+        op++;
+        | pop      rax
+        | movd     xmm5, rax
+        | pop      rax
+        | movd     xmm4, rax
+        | pop      rax
+        | movd     xmm3, rax
+        | pop      rax
+        | movd     xmm2, rax
+        | pop      rax
+        | movd     xmm1, rax
+        | pop      rax
+        | movd     xmm0, rax
+        | callop
+        break;
+      case OP_clo7:
+        op++;
+        | mov64    rdi, *op
+      case OP_fun7:
+        op++;
+        | pop      rax
+        | movd     xmm6, rax
+        | pop      rax
+        | movd     xmm5, rax
+        | pop      rax
+        | movd     xmm4, rax
+        | pop      rax
+        | movd     xmm3, rax
+        | pop      rax
+        | movd     xmm2, rax
+        | pop      rax
+        | movd     xmm1, rax
+        | pop      rax
+        | movd     xmm0, rax
+        | callop
+        break;
+
+      case OP_lt:
+        | logic    1, xmm1, xmm0
+        break;
+      case OP_le:
+        | logic    2, xmm1, xmm0
+        break;
+      case OP_gt:
+        | logic    1, xmm0, xmm1
+        break;
+      case OP_ge:
+        | logic    2, xmm0, xmm1
+        break;
+      case OP_eq:
+        | logic    0, xmm0, xmm1
+        break;
+      case OP_neq:
+        | logic    4, xmm0, xmm1
+        break;
+      case OP_and:
+        | pop      rax
+        | movd     xmm0, rax
+        | pop      rax
+        | movd     xmm1, rax
+        | xorpd    xmm2, xmm2
+        | ucomisd  xmm0, xmm2
+        | setp     al
+        | setne    cl
+        | or       cl, al
+        | ucomisd  xmm1, xmm2
+        | setp     al
+        | setne    dl
+        | or       dl, al
+        | and      dl, cl
+        | movzx    eax, dl
+        | xorps    xmm0, xmm0
+        | cvtsi2sd xmm0, eax
+        | movd     rax, xmm0
+        | push     rax
+        break;
+      case OP_or:
+        | pop      rax
+        | movd     xmm0, rax
+        | pop      rax
+        | movd     xmm1, rax
+        | xorpd    xmm2, xmm2
+        | ucomisd  xmm0, xmm2
+        | setp     al
+        | setne    cl
+        | or       cl, al
+        | ucomisd  xmm1, xmm2
+        | setp     al
+        | setne    dl
+        | or       dl, al
+        | or       dl, cl
+        | movzx    eax, dl
+        | xorps    xmm0, xmm0
+        | cvtsi2sd xmm0, eax
+        | movd     rax, xmm0
+        | push     rax
+        break;
+      case OP_not:
+        | pop      rax
+        | movd     xmm0, rax
+        | xorps    xmm1, xmm1
+        | cmpsd    xmm0, xmm1, 0
+        | mov64    rax, 0x3ff0000000000000
+        | movd     xmm1, rax
+        | andpd    xmm0, xmm1
+        | movd     rax, xmm0
+        | push     rax
+        break;
+
+      default:
+        assert(0);
+        __builtin_unreachable();
+    }
+
+    ++op;
+  }
+}
