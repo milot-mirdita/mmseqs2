@@ -12,6 +12,63 @@ static void emit(Dst_DECL, uint64_t* op) {
   |   movk    Xn, #(imm>>32)&0xffff, lsl #32
   |   movk    Xn, #(imm>>48)&0xffff, lsl #48
   | .endmacro
+  | .macro callop_push
+  |   str     x30, [sp, #-16]!
+  |   movq    x1, *op
+  |   blr     x1
+  |   ldr     x30, [sp], #16
+  |   str     d0, [sp, #-16]!
+  | .endmacro
+  | .macro callop_store, adj
+  |   str     x30, [sp, #-16]!
+  |   movq    x1, *op
+  |   blr     x1
+  |   ldr     x30, [sp], #16
+  |   add     sp, sp, #(16 * adj)
+  |   str     d0, [sp]
+  | .endmacro
+  | .macro loadargs1
+  |   ldr     d0, [sp]
+  | .endmacro
+  | .macro loadargs2
+  |   ldr     d0, [sp, #(16 * 1)]
+  |   ldr     d1, [sp, #(16 * 0)]
+  | .endmacro
+  | .macro loadargs3
+  |   ldr     d0, [sp, #(16 * 2)]
+  |   ldr     d1, [sp, #(16 * 1)]
+  |   ldr     d2, [sp, #(16 * 0)]
+  | .endmacro
+  | .macro loadargs4
+  |   ldr     d0, [sp, #(16 * 3)]
+  |   ldr     d1, [sp, #(16 * 2)]
+  |   ldr     d2, [sp, #(16 * 1)]
+  |   ldr     d3, [sp, #(16 * 0)]
+  | .endmacro
+  | .macro loadargs5
+  |   ldr     d0, [sp, #(16 * 4)]
+  |   ldr     d1, [sp, #(16 * 3)]
+  |   ldr     d2, [sp, #(16 * 2)]
+  |   ldr     d3, [sp, #(16 * 1)]
+  |   ldr     d4, [sp, #(16 * 0)]
+  | .endmacro
+  | .macro loadargs6
+  |   ldr     d0, [sp, #(16 * 5)]
+  |   ldr     d1, [sp, #(16 * 4)]
+  |   ldr     d2, [sp, #(16 * 3)]
+  |   ldr     d3, [sp, #(16 * 2)]
+  |   ldr     d4, [sp, #(16 * 1)]
+  |   ldr     d5, [sp, #(16 * 0)]
+  | .endmacro
+  | .macro loadargs7
+  |   ldr     d0, [sp, #(16 * 6)]
+  |   ldr     d1, [sp, #(16 * 5)]
+  |   ldr     d2, [sp, #(16 * 4)]
+  |   ldr     d3, [sp, #(16 * 3)]
+  |   ldr     d4, [sp, #(16 * 2)]
+  |   ldr     d5, [sp, #(16 * 1)]
+  |   ldr     d6, [sp, #(16 * 0)]
+  | .endmacro
   | .macro logic, op
   |   ldr     d1, [sp], #16
   |   ldr     d0, [sp]
@@ -70,130 +127,63 @@ static void emit(Dst_DECL, uint64_t* op) {
         | movq    x0, *op
       case OP_fun0:
         op++;
-        | stp     x29, x30, [sp, #-32]!
-        | mov     x29, sp
-        | movq    x1, *op
-        | blr     x1
-        | ldp     x29, x30, [sp], #32
-        | str     d0, [sp, #-16]!
+        | callop_push
         break;
       case OP_clo1:
         op++;
         | movq    x0, *op
       case OP_fun1:
         op++;
-        | ldr     d0, [sp]
-        | stp     x29, x30, [sp, #-32]!
-        | mov     x29, sp
-        | movq    x1, *op
-        | blr     x1
-        | ldp     x29, x30, [sp], #32
-        | str     d0, [sp]
+        | loadargs1
+        | callop_store 0
         break;
       case OP_clo2:
         op++;
         | movq    x0, *op
       case OP_fun2:
         op++;
-        | ldr     d0, [sp, #(16 * 1)]
-        | ldr     d1, [sp, #(16 * 0)]
-        | stp     x29, x30, [sp, #-32]!
-        | mov     x29, sp
-        | movq    x1, *op
-        | blr     x1
-        | ldp     x29, x30, [sp], #32
-        | add     sp, sp, #(16 * 1)
-        | str     d0, [sp]
+        | loadargs2
+        | callop_store 1
         break;
       case OP_clo3:
         op++;
         | movq    x0, *op
       case OP_fun3:
         op++;
-        | ldr     d0, [sp, #(16 * 2)]
-        | ldr     d1, [sp, #(16 * 1)]
-        | ldr     d2, [sp, #(16 * 0)]
-        | stp     x29, x30, [sp, #-32]!
-        | mov     x29, sp
-        | movq    x1, *op
-        | blr     x1
-        | ldp     x29, x30, [sp], #32
-        | add     sp, sp, #(16 * 2)
-        | str     d0, [sp]
+        | loadargs3
+        | callop_store 2
         break;
       case OP_clo4:
         op++;
         | movq    x0, *op
       case OP_fun4:
         op++;
-        | ldr     d0, [sp, #(16 * 3)]
-        | ldr     d1, [sp, #(16 * 2)]
-        | ldr     d2, [sp, #(16 * 1)]
-        | ldr     d3, [sp, #(16 * 0)]
-        | stp     x29, x30, [sp, #-32]!
-        | mov     x29, sp
-        | movq    x1, *op
-        | blr     x1
-        | ldp     x29, x30, [sp], #32
-        | add     sp, sp, #(16 * 3)
-        | str     d0, [sp]
+        | loadargs4
+        | callop_store 3
         break;
       case OP_clo5:
         op++;
         | movq    x0, *op
       case OP_fun5:
         op++;
-        | ldr     d0, [sp, #(16 * 4)]
-        | ldr     d1, [sp, #(16 * 3)]
-        | ldr     d2, [sp, #(16 * 2)]
-        | ldr     d3, [sp, #(16 * 1)]
-        | ldr     d4, [sp, #(16 * 0)]
-        | stp     x29, x30, [sp, #-32]!
-        | mov     x29, sp
-        | movq    x1, *op
-        | blr     x1
-        | ldp     x29, x30, [sp], #32
-        | add     sp, sp, #(16 * 4)
-        | str     d0, [sp]
+        | loadargs5
+        | callop_store 4
         break;
       case OP_clo6:
         op++;
         | movq    x0, *op
       case OP_fun6:
         op++;
-        | ldr     d0, [sp, #(16 * 5)]
-        | ldr     d1, [sp, #(16 * 4)]
-        | ldr     d2, [sp, #(16 * 3)]
-        | ldr     d3, [sp, #(16 * 2)]
-        | ldr     d4, [sp, #(16 * 1)]
-        | ldr     d5, [sp, #(16 * 0)]
-        | stp     x29, x30, [sp, #-32]!
-        | mov     x29, sp
-        | movq    x1, *op
-        | blr     x1
-        | ldp     x29, x30, [sp], #32
-        | add     sp, sp, #(16 * 5)
-        | str     d0, [sp]
+        | loadargs6
+        | callop_store 5
         break;
       case OP_clo7:
         op++;
         | movq    x0, *op
       case OP_fun7:
         op++;
-        | ldr     d0, [sp, #(16 * 6)]
-        | ldr     d1, [sp, #(16 * 5)]
-        | ldr     d2, [sp, #(16 * 4)]
-        | ldr     d3, [sp, #(16 * 3)]
-        | ldr     d4, [sp, #(16 * 2)]
-        | ldr     d5, [sp, #(16 * 1)]
-        | ldr     d6, [sp, #(16 * 0)]
-        | stp     x29, x30, [sp, #-32]!
-        | mov     x29, sp
-        | movq    x1, *op
-        | blr     x1
-        | ldp     x29, x30, [sp], #32
-        | add     sp, sp, #(16 * 6)
-        | str     d0, [sp]
+        | loadargs7
+        | callop_store 6
         break;
 
       case OP_lt:
@@ -217,24 +207,22 @@ static void emit(Dst_DECL, uint64_t* op) {
       case OP_and:
         | ldr     d1, [sp], #16
         | ldr     d0, [sp]
-        | mov     w0, #0
-        | fcmp    d1, #0.0
-        | beq     ->endand
         | fcmp    d0, #0.0
         | cset    w0, ne
-        |->endand:
+        | fcmp    d1, #0.0
+        | cset    w1, ne
+        | and     w0, w0, w1
         | ucvtf   d0, w0
         | str     d0, [sp]
         break;
       case OP_or:
         | ldr     d1, [sp], #16
         | ldr     d0, [sp]
-        | mov     w0, #1
-        | fcmp    d1, #0.0
-        | bne     ->endor
         | fcmp    d0, #0.0
         | cset    w0, ne
-        |->endor:
+        | fcmp    d1, #0.0
+        | cset    w1, ne
+        | orr     w0, w0, w1
         | ucvtf   d0, w0
         | str     d0, [sp]
         break;

@@ -1,6 +1,8 @@
 #include "ExpressionParser.h"
-#include <set>
+#include <algorithm>
 #include <cstddef>
+#include <cstdlib>
+#include <set>
 
 ExpressionParser::ExpressionParser(const char* expression) : ExpressionParser(expression, {}) {
 }
@@ -29,10 +31,21 @@ ExpressionParser::ExpressionParser(const char* expression, const std::vector<te_
 
 std::vector<int> ExpressionParser::findBindableIndices() {
     std::vector<int> indices;
-    for (size_t i = 0; i < 128; ++i) {
-        if (vars[i].bound == 1) {
-            indices.push_back(i);
+    for (const auto &var : vars) {
+        if (var.bound == 0 || var.name == nullptr || var.name[0] != '$') {
+            continue;
         }
+        char *end = nullptr;
+        const long index = std::strtol(var.name + 1, &end, 10);
+        if (end == nullptr || *end != '\0') {
+            continue;
+        }
+        if (index < 1 || index > 128) {
+            continue;
+        }
+        indices.push_back(static_cast<int>(index));
     }
+    std::sort(indices.begin(), indices.end());
+    indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
     return indices;
 }

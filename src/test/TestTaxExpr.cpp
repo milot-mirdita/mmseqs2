@@ -9,8 +9,14 @@ const char* binary_name = "test_taxexpr";
 
 
 int main (int, const char**) {
-    std::string path = "/Users/mad/Documents/databases//swissprot/sprot_new";
+    std::string path = "/home/mm/mmseqs2/sprot";
     NcbiTaxonomy *taxonomy = NcbiTaxonomy::openTaxonomy(path);
+
+    if (taxonomy == NULL) {
+        std::cerr << "Failed to open taxonomy at " << path << std::endl;
+        assert(false);
+    }
+
     TaxonomyExpression parser("!2", *taxonomy);
     if(parser.isAncestor(9606) == true){
         std::cout << "Found human" << std::endl;
@@ -114,6 +120,37 @@ int main (int, const char**) {
         assert(false);
     }
 
+    // Comma meaning tests
+    TaxonomyExpression expr_or("2,2759", *taxonomy, TaxonomyExpression::COMMA_IS_OR);
+    if (expr_or.isAncestor(9606) == false) {
+        assert(false);
+    }
+
+    TaxonomyExpression expr_and("2,2759", *taxonomy, TaxonomyExpression::COMMA_IS_AND);
+    if (expr_and.isAncestor(9606) == true) {
+        assert(false);
+    }
+    if (expr_and.isAncestor(2) == true) {
+        assert(false);
+    }
+
+    // Explicit parentheses and whitespace
+    TaxonomyExpression expr_ws(" ( 2759 && 9606 ) ", *taxonomy);
+    if (expr_ws.isAncestor(9606) == false) {
+        assert(false);
+    }
+
+    // Shortcut-only expression
+    TaxonomyExpression expr_shortcut("2759", *taxonomy);
+    if (expr_shortcut.isAncestor(9606) == false) {
+        assert(false);
+    }
+
+    // Negated grouped expression
+    TaxonomyExpression expr_not("!(2||2759)", *taxonomy);
+    if (expr_not.isAncestor(9606) == true) {
+        assert(false);
+    }
+
     delete taxonomy;
 }
-

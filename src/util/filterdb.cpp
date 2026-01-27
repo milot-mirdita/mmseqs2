@@ -358,11 +358,15 @@ int filterdb(int argc, const char **argv, const Command &command) {
                     const char *columnPointers[128];
                     Util::getWordsOfLine(lineBuffer, columnPointers, 128);
                     for (size_t i = 0; i < bindableParserColumns.size(); ++i) {
-                        size_t columnToBind = bindableParserColumns[i];
+                        const size_t columnToBind = bindableParserColumns[i];
+                        if (columnToBind == 0) {
+                            continue;
+                        }
+                        const size_t columnIndex = columnToBind - 1;
                         char *rest;
                         errno = 0;
-                        const double value = strtod(columnPointers[columnToBind], &rest);
-                        if ((rest == columnPointers[columnToBind]) || errno == ERANGE) {
+                        const double value = strtod(columnPointers[columnIndex], &rest);
+                        if ((rest == columnPointers[columnIndex]) || errno == ERANGE) {
                             Debug(Debug::WARNING) << "Can not parse column " << columnToBind << "!\n";
                             continue;
                         }

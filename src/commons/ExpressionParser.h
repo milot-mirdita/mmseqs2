@@ -22,10 +22,10 @@ public:
     std::vector<int> findBindableIndices();
 
     void bind(unsigned int index, double value) {
-        if (index > 127) {
+        if (index == 0 || index > 128) {
             return;
         }
-        variables[index] = value;
+        variables[index - 1] = value;
     }
 
     double evaluate() {

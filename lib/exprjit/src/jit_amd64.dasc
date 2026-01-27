@@ -35,18 +35,235 @@ static void emit(Dst_DECL, uint64_t* op) {
   |   mov      rsp, rbp
   |   pop r15; pop r14; pop r13; pop r12; pop rbx; pop rsi; pop rdi; pop rbp
   | .endmacro
+  | .macro loadargs1
+  |   pop      rax
+  |   movd     xmm0, rax
+  | .endmacro
+  | .macro loadargs2
+  |   pop      rax
+  |   movd     xmm1, rax
+  |   pop      rax
+  |   movd     xmm0, rax
+  | .endmacro
+  | .macro loadargs3
+  |   pop      rax
+  |   movd     xmm2, rax
+  |   pop      rax
+  |   movd     xmm1, rax
+  |   pop      rax
+  |   movd     xmm0, rax
+  | .endmacro
+  | .macro loadargs4
+  |   pop      rax
+  |   movd     xmm3, rax
+  |   pop      rax
+  |   movd     xmm2, rax
+  |   pop      rax
+  |   movd     xmm1, rax
+  |   pop      rax
+  |   movd     xmm0, rax
+  | .endmacro
+  | .macro loadargs5
+  |   pop      rax
+  |   movd     xmm4, rax
+  |   pop      rax
+  |   movd     xmm3, rax
+  |   pop      rax
+  |   movd     xmm2, rax
+  |   pop      rax
+  |   movd     xmm1, rax
+  |   pop      rax
+  |   movd     xmm0, rax
+  | .endmacro
+  | .macro loadargs6
+  |   pop      rax
+  |   movd     xmm5, rax
+  |   pop      rax
+  |   movd     xmm4, rax
+  |   pop      rax
+  |   movd     xmm3, rax
+  |   pop      rax
+  |   movd     xmm2, rax
+  |   pop      rax
+  |   movd     xmm1, rax
+  |   pop      rax
+  |   movd     xmm0, rax
+  | .endmacro
+  | .macro loadargs7
+  |   pop      rax
+  |   movd     xmm6, rax
+  |   pop      rax
+  |   movd     xmm5, rax
+  |   pop      rax
+  |   movd     xmm4, rax
+  |   pop      rax
+  |   movd     xmm3, rax
+  |   pop      rax
+  |   movd     xmm2, rax
+  |   pop      rax
+  |   movd     xmm1, rax
+  |   pop      rax
+  |   movd     xmm0, rax
+  | .endmacro
+  |
+  |.if WIN64
+  | .macro loadctx
+  |   mov64    rcx, *op
+  | .endmacro
+  | .macro callop_win0
+  |   mov      r12, rsp
+  |   sub      rsp, 40
+  |   mov64    rax, *op
+  |   call     rax
+  |   mov      rsp, r12
+  |   movd     rax, xmm0
+  |   push     rax
+  | .endmacro
+  | .macro callop_win1
+  |   mov      r12, rsp
+  |   sub      rsp, 32
+  |   mov64    rax, *op
+  |   call     rax
+  |   mov      rsp, r12
+  |   movd     rax, xmm0
+  |   push     rax
+  | .endmacro
+  | .macro callop_win2
+  |   mov      r12, rsp
+  |   sub      rsp, 40
+  |   mov64    rax, *op
+  |   call     rax
+  |   mov      rsp, r12
+  |   movd     rax, xmm0
+  |   push     rax
+  | .endmacro
+  | .macro callop_win3
+  |   mov      r12, rsp
+  |   sub      rsp, 32
+  |   mov64    rax, *op
+  |   call     rax
+  |   mov      rsp, r12
+  |   movd     rax, xmm0
+  |   push     rax
+  | .endmacro
+  | .macro callop_win4
+  |   mov      r12, rsp
+  |   sub      rsp, 40
+  |   mov64    rax, *op
+  |   call     rax
+  |   mov      rsp, r12
+  |   movd     rax, xmm0
+  |   push     rax
+  | .endmacro
+  | .macro callop_win5
+  |   mov      r12, rsp
+  |   sub      rsp, 48
+  |   movsd    [rsp+32], xmm4
+  |   mov64    rax, *op
+  |   call     rax
+  |   mov      rsp, r12
+  |   movd     rax, xmm0
+  |   push     rax
+  | .endmacro
+  | .macro callop_win6
+  |   mov      r12, rsp
+  |   sub      rsp, 56
+  |   movsd    [rsp+32], xmm4
+  |   movsd    [rsp+40], xmm5
+  |   mov64    rax, *op
+  |   call     rax
+  |   mov      rsp, r12
+  |   movd     rax, xmm0
+  |   push     rax
+  | .endmacro
+  | .macro callop_win7
+  |   mov      r12, rsp
+  |   sub      rsp, 64
+  |   movsd    [rsp+32], xmm4
+  |   movsd    [rsp+40], xmm5
+  |   movsd    [rsp+48], xmm6
+  |   mov64    rax, *op
+  |   call     rax
+  |   mov      rsp, r12
+  |   movd     rax, xmm0
+  |   push     rax
+  | .endmacro
+  | .macro callfun0
+  |   callop_win0
+  | .endmacro
+  | .macro callfun1
+  |   loadargs1
+  |   callop_win1
+  | .endmacro
+  | .macro callfun2
+  |   loadargs2
+  |   callop_win2
+  | .endmacro
+  | .macro callfun3
+  |   loadargs3
+  |   callop_win3
+  | .endmacro
+  | .macro callfun4
+  |   loadargs4
+  |   callop_win4
+  | .endmacro
+  | .macro callfun5
+  |   loadargs5
+  |   callop_win5
+  | .endmacro
+  | .macro callfun6
+  |   loadargs6
+  |   callop_win6
+  | .endmacro
+  | .macro callfun7
+  |   loadargs7
+  |   callop_win7
+  | .endmacro
+  |.else
+  | .macro loadctx
+  |   mov64    rdi, *op
+  | .endmacro
   | .macro callop
-  |   saveregs
-  |   xor      rax, rax
   |   mov      r12, rsp
   |   and      rsp, -16
   |   mov64    rsi, *op
   |   call     rsi
   |   mov      rsp, r12
-  |   restoreregs
   |   movd     rax, xmm0
   |   push     rax
   | .endmacro
+  | .macro callfun0
+  |   callop
+  | .endmacro
+  | .macro callfun1
+  |   loadargs1
+  |   callop
+  | .endmacro
+  | .macro callfun2
+  |   loadargs2
+  |   callop
+  | .endmacro
+  | .macro callfun3
+  |   loadargs3
+  |   callop
+  | .endmacro
+  | .macro callfun4
+  |   loadargs4
+  |   callop
+  | .endmacro
+  | .macro callfun5
+  |   loadargs5
+  |   callop
+  | .endmacro
+  | .macro callfun6
+  |   loadargs6
+  |   callop
+  | .endmacro
+  | .macro callfun7
+  |   loadargs7
+  |   callop
+  | .endmacro
+  |.endif
   | saveregs
   while (1) {
     switch (*op) {
@@ -93,115 +310,59 @@ static void emit(Dst_DECL, uint64_t* op) {
 
       case OP_clo0:
         op++;
-        | mov64    rdi, *op
+        | loadctx
       case OP_fun0:
         op++;
-        | callop
+        | callfun0
         break;
       case OP_clo1:
         op++;
-        | mov64    rdi, *op
+        | loadctx
       case OP_fun1:
         op++;
-        | pop      rax
-        | movd     xmm0, rax
-        | callop
+        | callfun1
         break;
       case OP_clo2:
         op++;
-        | mov64    rdi, *op
+        | loadctx
       case OP_fun2:
         op++;
-        | pop      rax
-        | movd     xmm1, rax
-        | pop      rax
-        | movd     xmm0, rax
-        | callop
+        | callfun2
         break;
       case OP_clo3:
         op++;
-        | mov64    rdi, *op
+        | loadctx
       case OP_fun3:
         op++;
-        | pop      rax
-        | movd     xmm2, rax
-        | pop      rax
-        | movd     xmm1, rax
-        | pop      rax
-        | movd     xmm0, rax
-        | callop
+        | callfun3
         break;
       case OP_clo4:
         op++;
-        | mov64    rdi, *op
+        | loadctx
       case OP_fun4:
         op++;
-        | pop      rax
-        | movd     xmm3, rax
-        | pop      rax
-        | movd     xmm2, rax
-        | pop      rax
-        | movd     xmm1, rax
-        | pop      rax
-        | movd     xmm0, rax
-        | callop
+        | callfun4
         break;
       case OP_clo5:
         op++;
-        | mov64    rdi, *op
+        | loadctx
       case OP_fun5:
         op++;
-        | pop      rax
-        | movd     xmm4, rax
-        | pop      rax
-        | movd     xmm3, rax
-        | pop      rax
-        | movd     xmm2, rax
-        | pop      rax
-        | movd     xmm1, rax
-        | pop      rax
-        | movd     xmm0, rax
-        | callop
+        | callfun5
         break;
       case OP_clo6:
         op++;
-        | mov64    rdi, *op
+        | loadctx
       case OP_fun6:
         op++;
-        | pop      rax
-        | movd     xmm5, rax
-        | pop      rax
-        | movd     xmm4, rax
-        | pop      rax
-        | movd     xmm3, rax
-        | pop      rax
-        | movd     xmm2, rax
-        | pop      rax
-        | movd     xmm1, rax
-        | pop      rax
-        | movd     xmm0, rax
-        | callop
+        | callfun6
         break;
       case OP_clo7:
         op++;
-        | mov64    rdi, *op
+        | loadctx
       case OP_fun7:
         op++;
-        | pop      rax
-        | movd     xmm6, rax
-        | pop      rax
-        | movd     xmm5, rax
-        | pop      rax
-        | movd     xmm4, rax
-        | pop      rax
-        | movd     xmm3, rax
-        | pop      rax
-        | movd     xmm2, rax
-        | pop      rax
-        | movd     xmm1, rax
-        | pop      rax
-        | movd     xmm0, rax
-        | callop
+        | callfun7
         break;
 
       case OP_lt:
@@ -228,18 +389,12 @@ static void emit(Dst_DECL, uint64_t* op) {
         | pop      rax
         | movd     xmm1, rax
         | xorpd    xmm2, xmm2
-        | ucomisd  xmm0, xmm2
-        | setp     al
-        | setne    cl
-        | or       cl, al
-        | ucomisd  xmm1, xmm2
-        | setp     al
-        | setne    dl
-        | or       dl, al
-        | and      dl, cl
-        | movzx    eax, dl
-        | xorps    xmm0, xmm0
-        | cvtsi2sd xmm0, eax
+        | cmpsd    xmm0, xmm2, 4
+        | cmpsd    xmm1, xmm2, 4
+        | andpd    xmm0, xmm1
+        | mov64    rax, 0x3ff0000000000000
+        | movd     xmm1, rax
+        | andpd    xmm0, xmm1
         | movd     rax, xmm0
         | push     rax
         break;
@@ -249,18 +404,12 @@ static void emit(Dst_DECL, uint64_t* op) {
         | pop      rax
         | movd     xmm1, rax
         | xorpd    xmm2, xmm2
-        | ucomisd  xmm0, xmm2
-        | setp     al
-        | setne    cl
-        | or       cl, al
-        | ucomisd  xmm1, xmm2
-        | setp     al
-        | setne    dl
-        | or       dl, al
-        | or       dl, cl
-        | movzx    eax, dl
-        | xorps    xmm0, xmm0
-        | cvtsi2sd xmm0, eax
+        | cmpsd    xmm0, xmm2, 4
+        | cmpsd    xmm1, xmm2, 4
+        | orpd     xmm0, xmm1
+        | mov64    rax, 0x3ff0000000000000
+        | movd     xmm1, rax
+        | andpd    xmm0, xmm1
         | movd     rax, xmm0
         | push     rax
         break;

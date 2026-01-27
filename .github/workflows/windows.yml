@@ -1,0 +1,54 @@
+name: Build Windows
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Install Cygwin
+        uses: cygwin/cygwin-install-action@v4
+        with:
+          packages: >-
+            bash
+            busybox-standalone
+            cmake
+            coreutils
+            diffutils
+            findutils
+            gawk
+            gcc-g++
+            grep
+            make
+            perl
+            python3
+            sed
+            tar
+            xz
+            zlib
+
+      - name: Build (release package)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$(cygpath -u "$GITHUB_WORKSPACE")"
+          ./util/build_windows.sh . ./build-windows mmseqs
+
+      - name: Build and run exprjit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$(cygpath -u "$GITHUB_WORKSPACE")"
+          mkdir -p build-win-tests
+          cd build-win-tests
+          cmake -DCMAKE_BUILD_TYPE=Release -DHAVE_TESTS=1 -DHAVE_MPI=0 -DHAVE_SSE4_1=1 ..
+          make -j2 test_tinyexpr
+          ./src/test/test_tinyexpr

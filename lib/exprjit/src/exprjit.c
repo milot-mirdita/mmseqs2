@@ -19,7 +19,58 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
+#if defined(_WIN32) && !defined(__CYGWIN__)
+#include <windows.h>
+#else
 #include <sys/mman.h>
+#endif
+
+#if defined(_M_X64) || defined(__x86_64__)
+#define EJ_X86_64 1
+#endif
+#if defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__)
+#define EJ_ARM64 1
+#endif
+
+#if defined(__CYGWIN__) && defined(EJ_ARM64)
+#error "Cygwin ARM64 is not supported by ExprJIT"
+#endif
+
+#if defined(_WIN32) && !defined(__CYGWIN__)
+static void* ej_alloc_exec(const size_t size) {
+  return VirtualAlloc(NULL, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+}
+
+static bool ej_make_exec(void* ptr, const size_t size) {
+  DWORD old_protect = 0;
+  return VirtualProtect(ptr, size, PAGE_EXECUTE_READ, &old_protect) != 0;
+}
+
+static void ej_free_exec(void* ptr, const size_t size) {
+  (void)size;
+  if (ptr) {
+    VirtualFree(ptr, 0, MEM_RELEASE);
+  }
+}
+#else
+static void* ej_alloc_exec(const size_t size) {
+  void* ptr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (ptr == MAP_FAILED) {
+    return NULL;
+  }
+  return ptr;
+}
+
+static bool ej_make_exec(void* ptr, const size_t size) {
+  return mprotect(ptr, size, PROT_READ | PROT_EXEC) == 0;
+}
+
+static void ej_free_exec(void* ptr, const size_t size) {
+  if (ptr) {
+    munmap(ptr, size);
+  }
+}
+#endif
 
 enum {
   OP_pos = 0,
@@ -69,6 +120,81 @@ struct ej_bytecode {
   double(*jit)();
   size_t jit_size;
 };
+
+typedef enum {
+  OPT_VAL_CONST,
+  OPT_VAL_VAR,
+  OPT_VAL_EMITTED
+} opt_val_kind;
+
+typedef struct {
+  opt_val_kind kind;
+  double constant;
+  uint64_t imm;
+} opt_val;
+
+typedef struct {
+  uint64_t *ops;
+  size_t size;
+  size_t capacity;
+} opt_bc;
+
+static void opt_bc_init(opt_bc *out, size_t cap) {
+  out->size = 0;
+  out->capacity = cap ? cap : 16;
+  out->ops = malloc(out->capacity * sizeof(uint64_t));
+}
+
+static void opt_bc_free(opt_bc *out) {
+  if (out->ops) {
+    free(out->ops);
+    out->ops = NULL;
+  }
+  out->size = 0;
+  out->capacity = 0;
+}
+
+static void opt_bc_push(opt_bc *out, uint64_t op) {
+  if (out->size == out->capacity) {
+    out->capacity *= 2;
+    out->ops = realloc(out->ops, out->capacity * sizeof(uint64_t));
+  }
+  out->ops[out->size++] = op;
+}
+
+static uint64_t double_to_u64(double value) {
+  uint64_t bits;
+  memcpy(&bits, &value, sizeof(bits));
+  return bits;
+}
+
+static double u64_to_double(uint64_t bits) {
+  double value;
+  memcpy(&value, &bits, sizeof(value));
+  return value;
+}
+
+static void opt_materialize_val(opt_bc *out, opt_val *val) {
+  if (val->kind == OPT_VAL_CONST) {
+    opt_bc_push(out, OP_con);
+    opt_bc_push(out, double_to_u64(val->constant));
+    val->kind = OPT_VAL_EMITTED;
+  } else if (val->kind == OPT_VAL_VAR) {
+    opt_bc_push(out, OP_var);
+    opt_bc_push(out, val->imm);
+    val->kind = OPT_VAL_EMITTED;
+  }
+}
+
+static void opt_materialize_all(opt_bc *out, opt_val *stack, size_t size) {
+  for (size_t i = 0; i < size; ++i) {
+    opt_materialize_val(out, &stack[i]);
+  }
+}
+
+static bool opt_is_const(const opt_val *val, double expected) {
+  return val->kind == OPT_VAL_CONST && val->constant == expected;
+}
 
 static ej_bytecode *bc_alloc(const size_t cap) {
   ej_bytecode *bc = malloc(sizeof(ej_bytecode));
@@ -1048,10 +1174,231 @@ double ej_eval_goto(ej_bytecode *bc) {
 void ej_free(ej_bytecode *bc) {
   if (bc) {
     if (bc->jit) {
-      munmap(bc->jit, bc->jit_size);
+      ej_free_exec(bc->jit, bc->jit_size);
     }
     free(bc->ops);
     free(bc);
+  }
+}
+
+void ej_optimize(ej_bytecode *bc) {
+  if (!bc || !bc->ops) {
+    return;
+  }
+  if (bc->jit) {
+    ej_free_exec(bc->jit, bc->jit_size);
+    bc->jit = NULL;
+    bc->jit_size = 0;
+  }
+
+  opt_bc out;
+  opt_bc_init(&out, bc->size);
+
+  opt_val stack[EJ_STACK_SIZE];
+  size_t stack_size = 0;
+  bool ok = true;
+
+  uint64_t *op = bc->ops;
+  while (1) {
+    switch (*op) {
+      case OP_pos:
+        break;
+      case OP_neg: {
+        if (stack_size < 1) {
+          ok = false;
+          goto finalize;
+        }
+        opt_val *top = &stack[stack_size - 1];
+        if (top->kind == OPT_VAL_CONST) {
+          top->constant = -top->constant;
+        } else {
+          opt_materialize_all(&out, stack, stack_size);
+          opt_bc_push(&out, OP_neg);
+          top->kind = OPT_VAL_EMITTED;
+        }
+        break;
+      }
+      case OP_not: {
+        if (stack_size < 1) {
+          ok = false;
+          goto finalize;
+        }
+        opt_val *top = &stack[stack_size - 1];
+        if (top->kind == OPT_VAL_CONST) {
+          top->constant = (top->constant == 0.0) ? 1.0 : 0.0;
+        } else {
+          opt_materialize_all(&out, stack, stack_size);
+          opt_bc_push(&out, OP_not);
+          top->kind = OPT_VAL_EMITTED;
+        }
+        break;
+      }
+      case OP_add:
+      case OP_sub:
+      case OP_mul:
+      case OP_div:
+      case OP_gt:
+      case OP_ge:
+      case OP_lt:
+      case OP_le:
+      case OP_eq:
+      case OP_neq:
+      case OP_and:
+      case OP_or: {
+        if (stack_size < 2) {
+          ok = false;
+          goto finalize;
+        }
+        opt_val *rhs = &stack[stack_size - 1];
+        opt_val *lhs = &stack[stack_size - 2];
+        const bool lhs_emitted = lhs->kind == OPT_VAL_EMITTED;
+        const bool rhs_emitted = rhs->kind == OPT_VAL_EMITTED;
+
+        if (!lhs_emitted && !rhs_emitted && lhs->kind == OPT_VAL_CONST && rhs->kind == OPT_VAL_CONST) {
+          double result = 0.0;
+          const double x = lhs->constant;
+          const double y = rhs->constant;
+          switch (*op) {
+            case OP_add: result = x + y; break;
+            case OP_sub: result = x - y; break;
+            case OP_mul: result = x * y; break;
+            case OP_div: result = x / y; break;
+            case OP_gt: result = (double)(x > y); break;
+            case OP_ge: result = (double)(x >= y); break;
+            case OP_lt: result = (double)(x < y); break;
+            case OP_le: result = (double)(x <= y); break;
+            case OP_eq: result = (double)(x == y); break;
+            case OP_neq: result = (double)(x != y); break;
+            case OP_and: result = (double)((x != 0.0) && (y != 0.0)); break;
+            case OP_or: result = (double)((x != 0.0) || (y != 0.0)); break;
+            default: break;
+          }
+          stack_size -= 2;
+          stack[stack_size++] = (opt_val){OPT_VAL_CONST, result, 0};
+          break;
+        }
+
+        if (!lhs_emitted && !rhs_emitted) {
+          if (*op == OP_add) {
+            if (opt_is_const(rhs, 0.0)) {
+              stack_size--;
+              break;
+            }
+            if (opt_is_const(lhs, 0.0)) {
+              stack[stack_size - 2] = *rhs;
+              stack_size--;
+              break;
+            }
+          } else if (*op == OP_sub) {
+            if (opt_is_const(rhs, 0.0)) {
+              stack_size--;
+              break;
+            }
+          } else if (*op == OP_mul) {
+            if (opt_is_const(rhs, 1.0)) {
+              stack_size--;
+              break;
+            }
+            if (opt_is_const(lhs, 1.0)) {
+              stack[stack_size - 2] = *rhs;
+              stack_size--;
+              break;
+            }
+          } else if (*op == OP_div) {
+            if (opt_is_const(rhs, 1.0)) {
+              stack_size--;
+              break;
+            }
+          } else if (*op == OP_and) {
+            if (opt_is_const(lhs, 0.0) || opt_is_const(rhs, 0.0)) {
+              stack_size -= 2;
+              stack[stack_size++] = (opt_val){OPT_VAL_CONST, 0.0, 0};
+              break;
+            }
+          } else if (*op == OP_or) {
+            if ((lhs->kind == OPT_VAL_CONST && lhs->constant != 0.0) ||
+                (rhs->kind == OPT_VAL_CONST && rhs->constant != 0.0)) {
+              stack_size -= 2;
+              stack[stack_size++] = (opt_val){OPT_VAL_CONST, 1.0, 0};
+              break;
+            }
+          }
+        }
+
+        opt_materialize_all(&out, stack, stack_size);
+        opt_bc_push(&out, *op);
+        stack_size -= 2;
+        stack[stack_size++] = (opt_val){OPT_VAL_EMITTED, 0.0, 0};
+        break;
+      }
+
+      case OP_var:
+        op++;
+        if (stack_size >= EJ_STACK_SIZE) {
+          ok = false;
+          goto finalize;
+        }
+        stack[stack_size++] = (opt_val){OPT_VAL_VAR, 0.0, *op};
+        break;
+      case OP_con:
+        op++;
+        if (stack_size >= EJ_STACK_SIZE) {
+          ok = false;
+          goto finalize;
+        }
+        stack[stack_size++] = (opt_val){OPT_VAL_CONST, u64_to_double(*op), 0};
+        break;
+      case OP_fun0: case OP_fun1: case OP_fun2: case OP_fun3:
+      case OP_fun4: case OP_fun5: case OP_fun6: case OP_fun7: {
+        const size_t arity = ARITY(*op);
+        if (stack_size < arity) {
+          ok = false;
+          goto finalize;
+        }
+        opt_materialize_all(&out, stack, stack_size);
+        opt_bc_push(&out, *op);
+        op++;
+        opt_bc_push(&out, *op);
+        stack_size -= arity;
+        stack[stack_size++] = (opt_val){OPT_VAL_EMITTED, 0.0, 0};
+        break;
+      }
+      case OP_clo0: case OP_clo1: case OP_clo2: case OP_clo3:
+      case OP_clo4: case OP_clo5: case OP_clo6: case OP_clo7: {
+        const size_t arity = ARITY(*op);
+        if (stack_size < arity) {
+          ok = false;
+          goto finalize;
+        }
+        opt_materialize_all(&out, stack, stack_size);
+        opt_bc_push(&out, *op);
+        op++;
+        opt_bc_push(&out, *op);
+        op++;
+        opt_bc_push(&out, *op);
+        stack_size -= arity;
+        stack[stack_size++] = (opt_val){OPT_VAL_EMITTED, 0.0, 0};
+        break;
+      }
+      case OP_ret:
+        opt_materialize_all(&out, stack, stack_size);
+        opt_bc_push(&out, OP_ret);
+        goto finalize;
+      default:
+        ok = false;
+        goto finalize;
+    }
+    ++op;
+  }
+
+finalize:
+  if (ok && out.size != 0) {
+    free(bc->ops);
+    bc->ops = out.ops;
+    bc->size = out.size;
+    bc->capacity = out.capacity;
+  } else {
+    opt_bc_free(&out);
   }
 }
 
@@ -1159,13 +1506,13 @@ double ej_interp(const char *str, int* error) {
   return result;
 }
 
-// windows function calls are not implemented, only sysv abi is supported
-#if (defined(__x86_64__) || defined(__arm64__)) && (!defined(_WIN32) && !defined(__CYGWIN__))
+// JIT is supported on x86_64 and arm64. Cygwin ARM64 is unsupported (guarded above).
+#if defined(EJ_X86_64) || defined(EJ_ARM64)
 // #define DASM_CHECKS 1
 #include "dynasm/dasm_proto.h"
-#if defined(__arm64__)
+#if defined(EJ_ARM64)
 #include "jit_arm64.c"
-#elif defined(__x86_64__)
+#elif defined(EJ_X86_64)
 #include "jit_amd64.c"
 #endif
 void ej_jit(ej_bytecode* bc) {
@@ -1187,7 +1534,7 @@ void ej_jit(ej_bytecode* bc) {
   if (status != DASM_S_OK) {
     goto free_state;
   }
-  bc->jit = mmap(0, bc->jit_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  bc->jit = ej_alloc_exec(bc->jit_size);
   if (bc->jit == NULL) {
     goto free_state;
   }
@@ -1195,12 +1542,11 @@ void ej_jit(ej_bytecode* bc) {
   if (status != DASM_S_OK) {
     goto unmap;
   }
-  status = mprotect(bc->jit, bc->jit_size, PROT_READ | PROT_EXEC);
-  if (status == 0) {
+  if (ej_make_exec(bc->jit, bc->jit_size)) {
     goto free_state;
   }
 unmap:
-  munmap(bc->jit, bc->jit_size);
+  ej_free_exec(bc->jit, bc->jit_size);
   bc->jit = NULL;
   bc->jit_size = 0;
 free_state:
