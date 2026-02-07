@@ -10,6 +10,7 @@ set(alignment_header_files
         alignment/BandedNucleotideAligner.h
         alignment/DistanceCalculator.h
         alignment/Fwbw.h
+        alignment/UngappedAligner.h
         PARENT_SCOPE
         )
 
@@ -26,5 +27,17 @@ set(alignment_source_files
         alignment/DistanceCalculator.cpp
         alignment/rescorediagonal.cpp
         alignment/Fwbw.cpp
-        PARENT_SCOPE
+        alignment/UngappedAlignerDefault.cpp
         )
+
+if (X86 OR X64)
+        set(ungapped_aligner_avx512_src ${CMAKE_CURRENT_SOURCE_DIR}/UngappedAlignerAVX512.cpp)
+        list(APPEND alignment_source_files ${ungapped_aligner_avx512_src})
+        set_source_files_properties(
+                ${ungapped_aligner_avx512_src}
+                DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
+                PROPERTIES COMPILE_FLAGS "-mavx512f -mavx512bw -mavx512dq"
+        )
+endif ()
+
+set(alignment_source_files ${alignment_source_files} PARENT_SCOPE)

@@ -15,6 +15,7 @@
 #include "SubstitutionMatrixProfileStates.h"
 #include "IndexReader.h"
 #include "QueryMatcherTaxonomyHook.h"
+#include "UngappedAligner.h"
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -360,6 +361,8 @@ void runFilterOnCpu(Parameters & par, BaseMatrix * subMat, int8_t * tinySubMat,
         Sequence tSeq(par.maxSeqLen, targetSeqType, subMat, 0, false, par.compBiasCorrection);
         SmithWaterman aligner(par.maxSeqLen, subMat->alphabetSize,
                               par.compBiasCorrection, par.compBiasCorrectionScale, NULL);
+        UngappedAligner ungappedAligner(par.maxSeqLen, subMat->alphabetSize,
+                                        par.compBiasCorrection, par.compBiasCorrectionScale);
 
         std::string resultBuffer;
         resultBuffer.reserve(262144);
@@ -370,10 +373,18 @@ void runFilterOnCpu(Parameters & par, BaseMatrix * subMat, int8_t * tinySubMat,
 
             qSeq.mapSequence(id, queryKey, querySeqData, querySeqLen);
 //            qSeq.printProfileStatePSSM();
-            if(Parameters::isEqualDbtype(qSeq.getSeqType(), Parameters::DBTYPE_HMM_PROFILE) ){
-                aligner.ssw_init(&qSeq, qSeq.getAlignmentProfile(), subMat);
-            }else{
-                aligner.ssw_init(&qSeq, tinySubMat, subMat);
+            if (alignmentMode == 0) {
+                if (Parameters::isEqualDbtype(qSeq.getSeqType(), Parameters::DBTYPE_HMM_PROFILE)) {
+                    ungappedAligner.initQuery(&qSeq, qSeq.getAlignmentProfile(), subMat);
+                } else {
+                    ungappedAligner.initQuery(&qSeq, tinySubMat, subMat);
+                }
+            } else {
+                if (Parameters::isEqualDbtype(qSeq.getSeqType(), Parameters::DBTYPE_HMM_PROFILE)) {
+                    aligner.ssw_init(&qSeq, qSeq.getAlignmentProfile(), subMat);
+                } else {
+                    aligner.ssw_init(&qSeq, tinySubMat, subMat);
+                }
             }
 #pragma omp for schedule(static) nowait
             for (size_t tId = 0; tId < tdbr->getSize(); tId++) {
@@ -407,7 +418,7 @@ void runFilterOnCpu(Parameters & par, BaseMatrix * subMat, int8_t * tinySubMat,
                 bool hasEvalue = true;
                 int score;
                 if (alignmentMode == 0) {
-                    score = aligner.ungapped_alignment(tSeq.numSequence, tSeq.L);
+                    score = ungappedAligner.score(tSeq.numSequence, tSeq.L);
                 } else {
                     std::string backtrace;
                     s_align res;

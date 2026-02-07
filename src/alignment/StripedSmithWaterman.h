@@ -178,18 +178,6 @@ public:
                         const int covMode, const float covThr, const float correlationScoreWeight,
                         const int32_t maskLen);
 
-
-    /*!	@function computed ungapped alignment score
-
-   @param	db_sequence	pointer to the target sequence; the target sequence needs to be numbers and corresponding to the mat parameter of
-   function ssw_init
-
-   @param	db_length	length of the target sequence
-   @return	max diagonal score
-   */
-   int ungapped_alignment(const unsigned char *db_sequence,
-                          int32_t db_length);
-
   /*!	@function	Create the query profile using the query sequence.
    @param	read	pointer to the query sequence; the query sequence needs to be numbers
    @param	readLen	length of the query sequence
@@ -301,4 +289,16 @@ private:
 
     void reverseMat(int8_t *rev_mat, const int8_t *mat, const int32_t aaSize, const int32_t target_length);
 };
+
+template <typename T, size_t Elements, unsigned int type, typename ProfileT>
+void createQueryProfile(ProfileT *profile,
+                        const int8_t *query_sequence,
+                        const int8_t *composition_bias,
+                        const int8_t *mat,
+                        const int32_t query_length,
+                        const int32_t aaSize,
+                        uint8_t bias,
+                        const int32_t offset,
+                        const int32_t entryLength);
+
 #endif /* SMITH_WATERMAN_SSE2_H */

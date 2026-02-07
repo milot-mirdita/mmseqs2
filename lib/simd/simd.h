@@ -55,8 +55,10 @@
 #endif
 
 #ifdef AVX512
-#include <simde/x86/avx512f.h>
-#include <simde/x86/avx512bw.h>
+// FIXME: Remove after updating SIMDe, headers are buggy in this versions
+#define SIMDE_X86_AVX512_CMPLE_H
+#define SIMDE_X86_AVX512_CMPGE_H
+#include <simde/x86/avx512.h>
 
 // double support
 #ifndef SIMD_DOUBLE
@@ -114,6 +116,36 @@ typedef __m512  simd_float;
 #define simdf32_fmadd(x,y,z) _mm512_fmadd_ps(x,y,z)
 #endif //SIMD_FLOAT
 
+template <int N, typename std::enable_if<N == 0, int>::type = 0>
+inline __m512i simdi_shift_right_avx512(const __m512i a, const __m512i carry = _mm512_setzero_si512()) {
+    (void) carry;
+    return a;
+}
+
+template <int N, typename std::enable_if<N == 64, int>::type = 0>
+inline __m512i simdi_shift_right_avx512(const __m512i a, const __m512i carry = _mm512_setzero_si512()) {
+    (void) a;
+    return carry;
+}
+
+template <int N, typename std::enable_if<(N > 0 && N < 64 && (N % 4) == 0), int>::type = 0>
+inline __m512i simdi_shift_right_avx512(const __m512i a, const __m512i carry = _mm512_setzero_si512()) {
+    return _mm512_alignr_epi32(carry, a, N / 4);
+}
+
+template <int N, typename std::enable_if<(N > 0 && N < 64 && (N % 4) != 0), int>::type = 0>
+inline __m512i simdi_shift_right_avx512(const __m512i a, const __m512i carry = _mm512_setzero_si512()) {
+    const __m512i a0 = simdi_shift_right_avx512<(N / 16 + 1) * 16>(a, carry);
+    const __m512i a1 = simdi_shift_right_avx512<(N / 16) * 16>(a, carry);
+    return _mm512_alignr_epi8(a0, a1, N % 16);
+}
+
+template <int N>
+inline __m512i simdi8_shiftl_avx512(const __m512i a) {
+    static_assert(N >= 0 && N <= 64, "AVX512 byte-shift supports 0..64 bytes");
+    return simdi_shift_right_avx512<64 - N>(_mm512_setzero_si512(), a);
+}
+
 // integer support 
 #ifndef SIMD_INT
 #define SIMD_INT
@@ -123,11 +155,11 @@ typedef __m512i simd_int;
 #define simdi32_add(x,y)    _mm512_add_epi32(x,y)
 #define simdi16_add(x,y)    _mm512_add_epi16(x,y)
 #define simdi16_adds(x,y)   _mm512_adds_epi16(x,y)
-#define simdui8_adds(x,y)   _mm512_adds_epu8()
+#define simdui8_adds(x,y)   _mm512_adds_epu8(x,y)
 #define simdi32_sub(x,y)    _mm512_sub_epi32(x,y)
-#define simdui8_subs(x,y)   _mm512_subs_epu8()
+#define simdui8_subs(x,y)   _mm512_subs_epu8(x,y)
 #define simdi32_mul(x,y)    _mm512_mullo_epi32(x,y)
-#define simdui8_max(x,y)    _mm512_max_epu8()
+#define simdui8_max(x,y)    _mm512_max_epu8(x,y)
 #define simdi16_max(x,y)    _mm512_max_epi16(x,y)
 #define simdi32_max(x,y)    _mm512_max_epi32(x,y)
 #define simdi_load(x)       _mm512_load_si512(x)
@@ -153,7 +185,7 @@ typedef __m512i simd_int;
 #define simdi_and(x,y)      _mm512_and_si512(x,y)
 #define simdi_andnot(x,y)   _mm512_andnot_si512(x,y)
 #define simdi_xor(x,y)      _mm512_xor_si512(x,y)
-#define simdi8_shiftl(x,y)  NOT_YET_IMP()
+#define simdi8_shiftl(x,y)  simdi8_shiftl_avx512<y>(x)
 #define simdi8_shiftr(x,y)  NOT_YET_IMP()
 #define simdi8_movemask(x)  NOT_YET_IMP()
 #define simdi16_extract(x,y) NOT_YET_IMP()
@@ -697,6 +729,7 @@ T** malloc_matrix(int dim1, int dim2) {
 }
 
 
+#ifndef AVX512
 inline simd_float simdf32_fpow2(simd_float X) {
 
     simd_int* xPtr = (simd_int*) &X;    // store address of float as pointer to int
@@ -901,6 +934,7 @@ static inline simd_float simdf32_log(simd_float x_init) {
     res = simdf32_blendv_ps(res, negInfVec, maskZeroOrSubnormal);
     return res;
 }
+#endif
 
 inline float ScalarProd20(const float* qi, const float* tj) {
 //#ifdef AVX

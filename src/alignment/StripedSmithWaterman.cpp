@@ -748,10 +748,9 @@ SmithWaterman::~SmithWaterman(){
 	delete block;
 }
 
-
 /* Generate query profile rearrange query sequence & calculate the weight of match/mismatch. */
-template <typename T, size_t Elements, unsigned int type>
-void createQueryProfile(simd_int *profile, const int8_t *query_sequence, const int8_t * composition_bias, const int8_t *mat,
+template <typename T, size_t Elements, unsigned int type, typename ProfileT>
+void createQueryProfile(ProfileT *profile, const int8_t *query_sequence, const int8_t * composition_bias, const int8_t *mat,
         const int32_t query_length, const int32_t aaSize, uint8_t bias, const int32_t offset, const int32_t entryLength) {
 	const int32_t segLen = (query_length + Elements - 1) / Elements;
 	T* t = (T*) profile;
@@ -771,12 +770,12 @@ void createQueryProfile(simd_int *profile, const int8_t *query_sequence, const i
 						*t++ = mat[nt * aaSize + q] + cb + bias;
 					}
 				} if(type == SmithWaterman::PROFILE) {
-                    // profile starts by 0
-//                    *t++ = (j >= query_length) ? bias : (mat[nt * entryLength + (j + (offset - 1))] + bias); //mat eq L*20  // mat[nt][j]
-                    *t++ = (j >= query_length) ? bias : mat[nt * entryLength + j + offset] + bias;
-//					// profile starts by 0 // TODO: offset?
-//					*t++ = (j >= query_length) ? bias : mat[nt * entryLength + j + offset] + bias; //mat eq L*20  // mat[nt][j]
-//					printf("(%1d, %1d) ", j , *(t-1));
+					// profile starts by 0
+					// *t++ = (j >= query_length) ? bias : (mat[nt * entryLength + (j + (offset - 1))] + bias); //mat eq L*20  // mat[nt][j]
+					*t++ = (j >= query_length) ? bias : mat[nt * entryLength + j + offset] + bias;
+					// profile starts by 0 // TODO: offset?
+					// *t++ = (j >= query_length) ? bias : mat[nt * entryLength + j + offset] + bias; //mat eq L*20  // mat[nt][j]
+					// printf("(%1d, %1d) ", j , *(t-1));
 				}
 				j += segLen;
 			}
@@ -784,6 +783,37 @@ void createQueryProfile(simd_int *profile, const int8_t *query_sequence, const i
 		}
 	}
 }
+
+template void createQueryProfile<int8_t, VECSIZE_INT * 4, SmithWaterman::PROFILE, simd_int>(
+        simd_int *profile, const int8_t *query_sequence, const int8_t *composition_bias, const int8_t *mat,
+        const int32_t query_length, const int32_t aaSize, uint8_t bias, const int32_t offset, const int32_t entryLength);
+template void createQueryProfile<int8_t, VECSIZE_INT * 4, SmithWaterman::SUBSTITUTIONMATRIX, simd_int>(
+        simd_int *profile, const int8_t *query_sequence, const int8_t *composition_bias, const int8_t *mat,
+        const int32_t query_length, const int32_t aaSize, uint8_t bias, const int32_t offset, const int32_t entryLength);
+template void createQueryProfile<int8_t, VECSIZE_INT * 4, SmithWaterman::PROFILE, int8_t>(
+        int8_t *profile, const int8_t *query_sequence, const int8_t *composition_bias, const int8_t *mat,
+        const int32_t query_length, const int32_t aaSize, uint8_t bias, const int32_t offset, const int32_t entryLength);
+template void createQueryProfile<int8_t, VECSIZE_INT * 4, SmithWaterman::SUBSTITUTIONMATRIX, int8_t>(
+        int8_t *profile, const int8_t *query_sequence, const int8_t *composition_bias, const int8_t *mat,
+        const int32_t query_length, const int32_t aaSize, uint8_t bias, const int32_t offset, const int32_t entryLength);
+template void createQueryProfile<int8_t, AVX512_VECSIZE_INT * 4, SmithWaterman::PROFILE, int8_t>(
+        int8_t *profile, const int8_t *query_sequence, const int8_t *composition_bias, const int8_t *mat,
+        const int32_t query_length, const int32_t aaSize, uint8_t bias, const int32_t offset, const int32_t entryLength);
+template void createQueryProfile<int8_t, AVX512_VECSIZE_INT * 4, SmithWaterman::SUBSTITUTIONMATRIX, int8_t>(
+        int8_t *profile, const int8_t *query_sequence, const int8_t *composition_bias, const int8_t *mat,
+        const int32_t query_length, const int32_t aaSize, uint8_t bias, const int32_t offset, const int32_t entryLength);
+template void createQueryProfile<int16_t, VECSIZE_INT * 2, SmithWaterman::PROFILE, simd_int>(
+        simd_int *profile, const int8_t *query_sequence, const int8_t *composition_bias, const int8_t *mat,
+        const int32_t query_length, const int32_t aaSize, uint8_t bias, const int32_t offset, const int32_t entryLength);
+template void createQueryProfile<int16_t, VECSIZE_INT * 2, SmithWaterman::SUBSTITUTIONMATRIX, simd_int>(
+        simd_int *profile, const int8_t *query_sequence, const int8_t *composition_bias, const int8_t *mat,
+        const int32_t query_length, const int32_t aaSize, uint8_t bias, const int32_t offset, const int32_t entryLength);
+template void createQueryProfile<int32_t, VECSIZE_INT, SmithWaterman::PROFILE, simd_int>(
+        simd_int *profile, const int8_t *query_sequence, const int8_t *composition_bias, const int8_t *mat,
+        const int32_t query_length, const int32_t aaSize, uint8_t bias, const int32_t offset, const int32_t entryLength);
+template void createQueryProfile<int32_t, VECSIZE_INT, SmithWaterman::SUBSTITUTIONMATRIX, simd_int>(
+        simd_int *profile, const int8_t *query_sequence, const int8_t *composition_bias, const int8_t *mat,
+        const int32_t query_length, const int32_t aaSize, uint8_t bias, const int32_t offset, const int32_t entryLength);
 
 uint8_t SmithWaterman::computeBias(const int32_t target_length, const int8_t *mat, const int32_t aaSize) {
     int8_t db_bias = 0;
@@ -1802,75 +1832,4 @@ s_align SmithWaterman::scoreIdentical(unsigned char *dbSeq, int L, EvalueComputa
 	r.evalue = evaluer->computeEvalue(r.score1, profile->query_length);
     r.identicalAACnt = L;
 	return r;
-}
-
-template <typename F>
-inline F simd_hmax(const F * in, unsigned int n) {
-    F current = std::numeric_limits<F>::min();
-    do {
-        current = std::max(current, *in++);
-    } while(--n);
-
-    return current;
-}
-
-int SmithWaterman::ungapped_alignment(const unsigned char *db_sequence, int32_t db_length) {
-#define SWAP(tmp, arg1, arg2) tmp = arg1; arg1 = arg2; arg2 = tmp;
-
-    int i; // position in query bands (0,..,W-1)
-    int j; // position in db sequence (0,..,dbseq_length-1)
-    int element_count = (VECSIZE_INT * 4);
-    const int W = (profile->query_length + (element_count - 1)) /
-                  element_count; // width of bands in query and score matrix = hochgerundetes LQ/16
-
-    simd_int *p;
-    simd_int S;              // 16 unsigned bytes holding S(b*W+i,j) (b=0,..,15)
-    simd_int Smax = simdi_setzero();
-    simd_int Soffset; // all scores in query profile are shifted up by Soffset to obtain pos values
-    simd_int *s_prev, *s_curr; // pointers to Score(i-1,j-1) and Score(i,j), resp.
-    simd_int *qji;             // query profile score in row j (for residue x_j)
-    simd_int *s_prev_it, *s_curr_it;
-    simd_int *query_profile_it = (simd_int *) profile->profile_byte;
-
-    // Load the score offset to all 16 unsigned byte elements of Soffset
-    Soffset = simdi8_set(profile->bias);
-    s_curr = simdData->vHStore;
-    s_prev = simdData->vHLoad;
-
-    memset(simdData->vHStore, 0, W * sizeof(simd_int));
-    memset(simdData->vHLoad, 0, W * sizeof(simd_int));
-
-    for (j = 0; j < db_length; ++j) // loop over db sequence positions
-    {
-
-        // Get address of query scores for row j
-        qji = query_profile_it + db_sequence[j] * W;
-
-        // Load the next S value
-        S = simdi_load(s_curr + W - 1);
-        S = simdi8_shiftl(S, 1);
-
-        // Swap s_prev and s_curr, smax_prev and smax_curr
-        SWAP(p, s_prev, s_curr);
-
-        s_curr_it = s_curr;
-        s_prev_it = s_prev;
-
-        for (i = 0; i < W; ++i) // loop over query band positions
-        {
-            // Saturated addition and subtraction to score S(i,j)
-            S = simdui8_adds(S, *(qji++)); // S(i,j) = S(i-1,j-1) + (q(i,x_j) + Soffset)
-            S = simdui8_subs(S, Soffset);       // S(i,j) = max(0, S(i,j) - Soffset)
-            simdi_store(s_curr_it++, S);       // store S to s_curr[i]
-            Smax = simdui8_max(Smax, S);       // Smax(i,j) = max(Smax(i,j), S(i,j))
-
-            // Load the next S and Smax values
-            S = simdi_load(s_prev_it++);
-        }
-    }
-    int score = simd_hmax((unsigned char *) &Smax, element_count);
-
-    /* return largest score */
-    return score;
-#undef SWAP
 }
