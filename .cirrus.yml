@@ -4,7 +4,7 @@ env:
 task:
   name: FreeBSD
   freebsd_instance:
-    image_family: freebsd-14-2-snap
+    image_family: freebsd-14-3
   install_script: |
     # pkg update -f
     pkg install -y cmake git samtools rust
