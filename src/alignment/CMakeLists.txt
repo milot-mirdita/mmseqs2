@@ -31,13 +31,17 @@ set(alignment_source_files
         )
 
 if (X86 OR X64)
-        set(ungapped_aligner_avx512_src ${CMAKE_CURRENT_SOURCE_DIR}/UngappedAlignerAVX512.cpp)
-        list(APPEND alignment_source_files ${ungapped_aligner_avx512_src})
-        set_source_files_properties(
-                ${ungapped_aligner_avx512_src}
-                DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
-                PROPERTIES COMPILE_FLAGS "-mavx512f -mavx512bw -mavx512dq"
-        )
+        include(CheckCXXCompilerFlag)
+        check_cxx_compiler_flag("-mavx512f -mavx512bw -mavx512dq" HAVE_AVX512_UNGAPPED_FLAGS)
+        if (HAVE_AVX512_UNGAPPED_FLAGS)
+                set(ungapped_aligner_avx512_src ${CMAKE_CURRENT_SOURCE_DIR}/UngappedAlignerAVX512.cpp)
+                list(APPEND alignment_source_files ${ungapped_aligner_avx512_src})
+                set_source_files_properties(
+                        ${ungapped_aligner_avx512_src}
+                        DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
+                        PROPERTIES COMPILE_FLAGS "-mavx512f -mavx512bw -mavx512dq"
+                )
+        endif ()
 endif ()
 
 set(alignment_source_files ${alignment_source_files} PARENT_SCOPE)
