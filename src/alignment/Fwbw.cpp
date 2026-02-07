@@ -1017,7 +1017,7 @@ void FwBwAligner::computeBacktrace() {
         score_MAC = S_curr[colSeqLen];
     }
     // traceback 
-    alignResult = {};
+    alignResult = s_align();
     alignResult.cigar = "";
     alignResult.cigar.reserve(colSeqLen + rowSeqLen);
     alignResult.score1 = maxP;
