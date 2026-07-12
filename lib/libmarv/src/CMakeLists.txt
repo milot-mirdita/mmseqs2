@@ -1,5 +1,73 @@
 cmake_minimum_required(VERSION 3.18)
 
+if(ENABLE_METAL)
+    project(marv LANGUAGES CXX OBJCXX)
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_EXTENSIONS OFF)
+
+    set(MARV_METAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/metal)
+    set(MARV_METALLIB_EMBED ${CMAKE_CURRENT_BINARY_DIR}/mmseqs_metallib_embed.c)
+
+    add_library(marv STATIC
+        marv.cu
+        blosum.cu
+        dbdata.cpp
+        metal/cuda_metal_runtime.mm
+        ${MARV_METALLIB_EMBED}
+    )
+
+    # compile cuda code as C++ on metal
+    set_source_files_properties(marv.cu blosum.cu dbdata.cpp PROPERTIES
+        LANGUAGE CXX
+        COMPILE_FLAGS "-x c++")
+    set_source_files_properties(metal/cuda_metal_runtime.mm PROPERTIES
+        COMPILE_FLAGS "-fobjc-arc")
+
+    target_compile_definitions(marv PRIVATE
+        __METAL_BACKEND__=1
+        NO_NVTOOLSEXT)
+
+    # cuda shims
+    target_include_directories(marv PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${MARV_METAL_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/hpc_helpers)
+
+    target_link_libraries(marv "-framework Metal" "-framework Foundation" "-framework IOKit")
+
+    # embed metal kernels into binary
+    find_program(XCRUN_EXECUTABLE xcrun REQUIRED)
+    find_program(XXD_EXECUTABLE xxd REQUIRED)
+    set(MARV_METALLIB ${CMAKE_BINARY_DIR}/mmseqs.metallib)
+    add_custom_command(
+        OUTPUT ${MARV_METALLIB}
+        COMMAND ${XCRUN_EXECUTABLE} -sdk macosx metal
+                -c ${MARV_METAL_DIR}/metal_gapless.metal
+                -o ${CMAKE_BINARY_DIR}/metal_gapless.air
+        COMMAND ${XCRUN_EXECUTABLE} -sdk macosx metallib
+                ${CMAKE_BINARY_DIR}/metal_gapless.air
+                -o ${MARV_METALLIB}
+        DEPENDS ${MARV_METAL_DIR}/metal_gapless.metal
+    )
+
+    add_custom_command(
+        OUTPUT ${MARV_METALLIB_EMBED}
+        COMMAND ${XXD_EXECUTABLE} -i mmseqs.metallib > ${MARV_METALLIB_EMBED}
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        DEPENDS ${MARV_METALLIB}
+        COMMENT "Embedding mmseqs.metallib into the binary")
+    set_source_files_properties(${MARV_METALLIB_EMBED} PROPERTIES GENERATED TRUE)
+
+    add_custom_target(mmseqs_metallib ALL DEPENDS ${MARV_METALLIB})
+
+    if(HAVE_TESTS)
+        enable_testing()
+        add_subdirectory(metal/test)
+    endif()
+
+    return()
+endif()
+
 if(ENABLE_HIP)
     set(MARV_GPU_LANGUAGE HIP)
 else()

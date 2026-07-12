@@ -1,3 +1,5 @@
+#include "cuda_backend.h"
+
 #include "blosum.hpp"
 #include "util.cuh"
 

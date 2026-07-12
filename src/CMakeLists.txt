@@ -253,6 +253,12 @@ if (HAVE_GPROF)
     endif ()
 endif ()
 
+if (ENABLE_METAL)
+    target_compile_definitions(mmseqs-framework PUBLIC -DHAVE_METAL=1)
+    target_include_directories(mmseqs-framework PUBLIC ${CMAKE_SOURCE_DIR}/lib/libmarv/src)
+    target_link_libraries(mmseqs-framework marv "-framework Metal" "-framework Foundation" "-framework IOKit")
+endif ()
+
 if (ENABLE_CUDA)
     target_compile_definitions(mmseqs-framework PUBLIC -DHAVE_CUDA=1)
     if (ENABLE_HIP)

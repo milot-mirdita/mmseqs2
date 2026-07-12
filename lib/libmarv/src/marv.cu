@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-#include "cuda_hip_rename.h"
+#include "cuda_backend.h"
 
 #if defined(__HIPCC__)
     #include "hip/hip_runtime.h"
@@ -109,6 +109,12 @@ std::vector<int> Marv::getDeviceIds() {
 }
 
 void* Marv::loadDb(char* data, size_t* offset, int32_t* length, size_t dbByteSize) {
+#ifdef __METAL_BACKEND__
+    // register database to metal has unified, host-addressable memory,
+    metalRegisterHostRegion(data, dbByteSize);
+    metalRegisterHostRegion(offset, sizeof(size_t) * (dbEntries + 1));
+    metalRegisterHostRegion(length, sizeof(int32_t) * dbEntries);
+#endif
     return static_cast<void*>(new cudasw4::MMseqsDB(cudasw4::loadMMseqsDB(
         dbEntries, data, offset, length, dbByteSize
     )));

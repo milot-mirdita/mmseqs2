@@ -9,7 +9,7 @@
 #include <cuda_fp16.h>
 #endif
 
-#include "cuda_hip_rename.h"
+#include "cuda_backend.h"
 
 #include <map>
 
@@ -56,8 +56,10 @@ namespace cudasw4{
     X(8,24) X(8,28) X(8,32) X(8,36) \
     X(16,20) X(16,24) X(16,28) X(16,32) \
     X(32,20) X(32,24) X(32,28)
-#endif  
+#endif
 
+// TODO: implement on metal
+#ifndef __METAL_BACKEND__
 
 
 
@@ -1802,7 +1804,7 @@ void call_amino_gpu_localAlignmentKernel_affinegap_floatOrInt_pssm_multitile(
     #undef X
 }
 
-
+#endif
 
 } //namespace cudasw4
 

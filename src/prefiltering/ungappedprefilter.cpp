@@ -25,13 +25,16 @@
 #include <omp.h>
 #endif
 // #define HAVE_CUDA 1
-#ifdef HAVE_CUDA
-#include "GpuUtil.h"
+#if defined(HAVE_CUDA) || defined(HAVE_METAL)
+#include "marv.h"
 #include "Alignment.h"
 #include <signal.h>
+#ifdef HAVE_CUDA
+#include "GpuUtil.h"
+#endif
 #endif
 
-#ifdef HAVE_CUDA
+#if defined(HAVE_CUDA) || defined(HAVE_METAL)
 
 volatile sig_atomic_t keepRunningClient = 1;
 void intHandlerClient(int) {
@@ -69,6 +72,8 @@ void runFilterOnGpu(Parameters & par, BaseMatrix * subMat,
     }
 
     std::string hash = "";
+#ifdef HAVE_CUDA
+    // gpuserver amortizes CUDA's startup overhead, not needed on metal
     if (par.gpuServer != 0) {
         hash = GPUSharedMemory::getShmHash(par.db2);
         std::string path = "/dev/shm/" + hash;
@@ -120,12 +125,15 @@ void runFilterOnGpu(Parameters & par, BaseMatrix * subMat,
             Debug(Debug::INFO) << "\n";
         }
     }
+#endif
 
     size_t* offsetData = NULL;
     int32_t* lengthData = NULL;
     std::vector<size_t> offsets;
     std::vector<int32_t> lengths;
+#ifdef HAVE_CUDA
     GPUSharedMemory* layout = NULL;
+#endif
     if (hash.empty()) {
         offsets.reserve(tdbr->getSize() + 1);
         lengths.reserve(tdbr->getSize());
@@ -136,11 +144,18 @@ void runFilterOnGpu(Parameters & par, BaseMatrix * subMat,
         offsets.emplace_back(offsets.back() + lengths.back());
         offsetData = offsets.data();
         lengthData = lengths.data();
-    } else {
+    }
+#ifdef HAVE_CUDA
+    else {
         layout = GPUSharedMemory::openSharedMemory(hash);
     }
+#endif
 
+#ifdef HAVE_CUDA
     const bool serverMode = par.gpuServer;
+#else
+    const bool serverMode = false; // no server mode on Metal
+#endif
     Marv* marv = NULL;
     if (serverMode == 0) {
        if (offsetData == NULL || lengthData == NULL) {
@@ -148,15 +163,22 @@ void runFilterOnGpu(Parameters & par, BaseMatrix * subMat,
            EXIT(EXIT_FAILURE);
        }
         int32_t maxTargetLength = lengths.back();
+#ifdef HAVE_METAL
+        // TODO: implement SW
+        Marv::AlignmentType type = Marv::AlignmentType::GAPLESS;
+#else
         Marv::AlignmentType type = (par.prefMode == Parameters::PREF_MODE_UNGAPPED_AND_GAPPED) ?
                 Marv::AlignmentType::GAPLESS_SMITH_WATERMAN : Marv::AlignmentType::GAPLESS;
+#endif
         marv = new Marv(tdbr->getSize(), subMat->alphabetSize, maxTargetLength,
                         par.maxResListLen, type);
         void* h = marv->loadDb(
             tdbr->getDataForFile(0), offsetData, lengthData, tdbr->getDataSizeForFile(0)
         );
         marv->setDb(h);
-    } else if (layout == NULL) {
+    }
+#ifdef HAVE_CUDA
+    else if (layout == NULL) {
        Debug(Debug::ERROR) << "No GPU server shared memory connection\n";
        EXIT(EXIT_FAILURE);
     } else {
@@ -167,6 +189,7 @@ void runFilterOnGpu(Parameters & par, BaseMatrix * subMat,
         sigaction(SIGINT, &act, NULL);
         sigaction(SIGTERM, &act, NULL);
     }
+#endif
 
     // marv.prefetch();
     for (size_t id = 0; id < qdbr->getSize(); id++) {
@@ -205,7 +228,9 @@ void runFilterOnGpu(Parameters & par, BaseMatrix * subMat,
         Marv::Stats stats;
         if (serverMode == 0) {
             stats = marv->scan(reinterpret_cast<const char *>(qSeq.numSequence), qSeq.L, profile, results.data());
-        } else {
+        }
+#ifdef HAVE_CUDA
+        else {
             bool claimed = false;
             while (!claimed) {
                 if (layout->serverExit.load(std::memory_order_acquire) == true) {
@@ -255,6 +280,7 @@ void runFilterOnGpu(Parameters & par, BaseMatrix * subMat,
                 }
             }
         }
+#endif
         if (keepRunningClient == false) {
             EXIT(EXIT_FAILURE);
         }
@@ -330,9 +356,12 @@ void runFilterOnGpu(Parameters & par, BaseMatrix * subMat,
     }
     if (marv != NULL) {
         delete marv;
-    } else {
+    }
+#ifdef HAVE_CUDA
+    else {
         GPUSharedMemory::unmap(layout);
     }
+#endif
 
     if (compositionBias != NULL) {
         free(compositionBias);
@@ -554,11 +583,11 @@ int prefilterInternal(int argc, const char **argv, const Command &command, int m
         taxonomyHook = new QueryMatcherTaxonomyHook(par.db2, tdbr, par.taxonList, par.threads);
     }
     if(par.gpu){
-#ifdef HAVE_CUDA
+#if defined(HAVE_CUDA) || defined(HAVE_METAL)
         runFilterOnGpu(par, subMat, qdbr, tdbr, sameDB,
                        resultWriter, evaluer, taxonomyHook);
 #else
-        Debug(Debug::ERROR) << "MMseqs2 was compiled without CUDA support\n";
+        Debug(Debug::ERROR) << "MMseqs2 was compiled without GPU support\n";
         EXIT(EXIT_FAILURE);
 #endif
     }else{

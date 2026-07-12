@@ -1,9 +1,9 @@
 #ifndef HELPERS_PEER_ACCESS_CUH
 #define HELPERS_PEER_ACCESS_CUH
 
-#include "../cuda_hip_rename.h"
+#include "../cuda_backend.h"
 
-#if defined(__CUDACC__) || defined(__HIPCC__)
+#if defined(__CUDACC__) || defined(__HIPCC__) || defined(__METAL_BACKEND__)
 
     #include <cassert>
     #include <iostream>

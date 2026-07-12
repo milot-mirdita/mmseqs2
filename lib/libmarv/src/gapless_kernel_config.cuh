@@ -1,7 +1,7 @@
 #ifndef GAPLESS_KERNEL_CONFIG_CUH
 #define GAPLESS_KERNEL_CONFIG_CUH
 
-#include "cuda_hip_rename.h"
+#include "cuda_backend.h"
 
 #include <algorithm>
 #include <vector>
@@ -567,6 +567,10 @@ namespace cudasw4{
         }else{
             configs = getOptimalKernelConfigs_gapless_amd_default();
         }
+    #elif defined(__METAL_BACKEND__)
+        // return dummy values, ignored on metal
+        (void)ccMajor; (void)ccMinor; (void)blackwell_int8;
+        configs = getOptimalKernelConfigs_gapless_default();
     #endif
         return configs;
     }

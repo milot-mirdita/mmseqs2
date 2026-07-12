@@ -1,7 +1,7 @@
 #ifndef HELPERS_TIMERS_CUH
 #define HELPERS_TIMERS_CUH
 
-#include "../cuda_hip_rename.h"
+#include "../cuda_backend.h"
 
 #include <chrono>
 #include <ostream>
@@ -109,7 +109,7 @@ namespace helpers {
     };
 
 
-    #if defined(__CUDACC__) || defined(__HIPCC__)
+    #if defined(__CUDACC__) || defined(__HIPCC__) || defined(__METAL_BACKEND__)
 
     class GpuTimer{
     public:

@@ -9,7 +9,7 @@
 #include <thrust/fill.h>
 
 
-#include "cuda_hip_rename.h"
+#include "cuda_backend.h"
 
 namespace cudasw4{
 

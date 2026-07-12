@@ -1,6 +1,7 @@
 #ifndef CUDA_HIP_COMPATIBILITY_
 #define CUDA_HIP_COMPATIBILITY_
 
+#if defined(__CUDACC__) || defined(__HIPCC__)
 #if defined(__HIPCC__)
     #include <hip/hip_fp16.h>
 #endif
@@ -191,5 +192,6 @@ int group_reduce_max(Group group, int val){
 } //namespace compatibility
 
 
+#endif
 
 #endif

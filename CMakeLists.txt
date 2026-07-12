@@ -21,6 +21,14 @@ set(USE_SYSTEM_ZSTD 0 CACHE BOOL "Use zstd provided by system instead of bundled
 set(IGNORE_RUST_VERSION 0 CACHE BOOL "Ignore Rust version check")
 set(ENABLE_HIP 0 CACHE BOOL "Enable HIP")
 set(ENABLE_CUDA 0 CACHE BOOL "Enable CUDA")
+set(ENABLE_METAL 0 CACHE BOOL "Enable Metal (macOS)")
+
+if (ENABLE_METAL)
+    if (NOT APPLE)
+        message(FATAL_ERROR "ENABLE_METAL requires Apple/macOS")
+    endif ()
+    enable_language(OBJCXX)
+endif ()
 set(FORCE_STATIC_DEPS 0 CACHE BOOL "Force static linking of deps")
 set(MMSEQS_INT64_IDS 0 CACHE BOOL "Use 64-bit internal sequence/database IDs")
 
@@ -305,7 +313,7 @@ if (NOT DISABLE_IPS4O)
 endif ()
 
 # libmarv
-if (ENABLE_CUDA)
+if (ENABLE_CUDA OR ENABLE_METAL)
     set(LIBRARY_ONLY 1 CACHE INTERNAL "" FORCE)
     include_directories(lib/libmarv/src)
     add_subdirectory(lib/libmarv/src EXCLUDE_FROM_ALL)

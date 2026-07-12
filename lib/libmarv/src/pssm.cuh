@@ -10,7 +10,7 @@
     #include "cuda_fp16.h"
 #endif
 
-#include "cuda_hip_rename.h"
+#include "cuda_backend.h"
 
 #include "config.hpp"
 #include "types.hpp"
@@ -217,6 +217,7 @@ struct GpuPSSM{
 };
 
 
+#ifndef __METAL_BACKEND__
 //PSSM alignment kernel will use vectorized loads to load multiple half elements
 // accessSizeBytes specifies the vector size in bytes, e.g. 16 for float4
 template<int accessSizeBytes, class InputT, class OutputT>
@@ -298,6 +299,7 @@ void permute_PSSM_for_SW_kernel(
         }
     }
 }
+#endif
 
 struct GpuPermutedPSSMforGapless{
     int alphabetSize;
@@ -306,6 +308,26 @@ struct GpuPermutedPSSMforGapless{
     int columnstride;
     SequenceLengthT queryLength;
     helpers::SimpleAllocationDevice<char, 0> data;
+
+#ifdef __METAL_BACKEND__
+    // Native format for the Metal kernel: row-major int8[alphabetSize][queryLength]
+    helpers::SimpleAllocationDevice<int8_t, 0> metalPssmInt8;
+    // cumulative FP16 overflow tally
+    helpers::SimpleAllocationDevice<uint32_t, 0> metalOverflow;
+    // host mirror of last-seen tally
+    uint32_t metalOverflowSeen = 0;
+
+    const int8_t* metalPssmData() const { return metalPssmInt8.data(); }
+
+    uint32_t* metalOverflowBuffer(){
+        if(metalOverflow.size() < 1){
+            metalOverflow.resize(1);
+            metalOverflow.data()[0] = 0;
+            metalOverflowSeen = 0;
+        }
+        return metalOverflow.data();
+    }
+#endif
 
     template<class T>
     void resize(int group_size_, int numRegs_, int alphabetSize_, int queryLength_, cudaStream_t stream){
@@ -368,6 +390,23 @@ struct GpuPermutedPSSMforGapless{
 
     template<class OutputT, int accessSizeBytes, class InputT>
     void fromGpuPSSMView(PSSM_2D_View<InputT> inputView, int group_size_, int numRegs_, cudaStream_t stream){
+#ifdef __METAL_BACKEND__
+        // Prepare PSSM on CPU on metal
+        (void)group_size_; (void)numRegs_; (void)stream;
+        alphabetSize = inputView.numRows;
+        queryLength  = inputView.numColumns;
+        metalPssmInt8.resize(static_cast<size_t>(alphabetSize) * queryLength);
+        for(int row = 0; row < alphabetSize; row++){
+            const InputT* src = inputView[row];
+            int8_t* dst = metalPssmInt8.data() + static_cast<size_t>(row) * queryLength;
+            for(int col = 0; col < queryLength; col++){
+                int v = static_cast<int>(src[col]);
+                if(v >  127) v =  127;
+                if(v < -128) v = -128;
+                dst[col] = static_cast<int8_t>(v);
+            }
+        }
+#else
         resize<OutputT>(group_size_, numRegs_, inputView.numRows, inputView.numColumns, stream);
 
         PSSM_2D_ModifiableView<OutputT> resultView;
@@ -385,6 +424,7 @@ struct GpuPermutedPSSMforGapless{
             numRegs,
             group_size
         ); CUERR;
+#endif
     }
 };
 
@@ -428,6 +468,11 @@ struct GpuPermutedPSSMforSW{
 
     template<int accessSizeBytes, class OutputT, class InputT>
     void fromGpuPSSMView(PSSM_2D_View<InputT> inputView, int group_size_, int numRegs_, cudaStream_t stream){
+#ifdef __METAL_BACKEND__
+        // TODO: implement metal SW
+        (void)inputView; (void)group_size_; (void)numRegs_; (void)stream;
+        throw std::runtime_error("Smith-Waterman PSSM permute not supported on Metal");
+#else
         resize<OutputT>(group_size_, numRegs_, inputView.numRows, inputView.numColumns, stream);
 
         PSSM_2D_ModifiableView<OutputT> resultView;
@@ -445,6 +490,7 @@ struct GpuPermutedPSSMforSW{
             numRegs,
             group_size
         ); CUERR;
+#endif
     }
 };
 

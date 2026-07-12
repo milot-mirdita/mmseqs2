@@ -9,7 +9,7 @@
 #include <cuda_fp16.h>
 #endif
 
-#include "cuda_hip_rename.h"
+#include "cuda_backend.h"
 
 #include <map>
 
@@ -47,6 +47,7 @@ namespace cg = cooperative_groups;
 
 namespace cudasw4{
 
+#ifndef __METAL_BACKEND__
 
 
 
@@ -2003,6 +2004,7 @@ namespace kernelparamzero{
 
 } //namespace kernelparamzero
 
+#endif
 
 } //namespace cudasw4
 

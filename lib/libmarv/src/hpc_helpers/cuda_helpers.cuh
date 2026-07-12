@@ -1,7 +1,7 @@
 #ifndef HELPERS_CUDA_HELPERS_CUH
 #define HELPERS_CUDA_HELPERS_CUH
 
-#include "../cuda_hip_rename.h"
+#include "../cuda_backend.h"
 
 #include <iostream>
 #include <cstdint>
@@ -360,6 +360,11 @@
         void die() { assert(0); } // mharris style
 
     } // namespace helpers
+
+#elif defined(__METAL_BACKEND__)
+    namespace helpers {
+        inline void init_cuda_context() {}
+    }
 
 #endif
 

@@ -7,11 +7,11 @@
 
 struct GpuDatabaseAllocationBase{
     virtual const char* getCharData() const = 0;
-    virtual const SequenceLengthT* getLengthData() const = 0;
+    virtual const cudasw4::SequenceLengthT* getLengthData() const = 0;
     virtual const size_t* getOffsetData() const = 0;
 
     virtual char* getCharData() = 0;
-    virtual SequenceLengthT* getLengthData() = 0;
+    virtual cudasw4::SequenceLengthT* getLengthData() = 0;
     virtual size_t* getOffsetData() = 0;
 
     virtual size_t getNumChars() const = 0;
@@ -31,7 +31,7 @@ struct GpuDatabaseAllocation : public GpuDatabaseAllocationBase{
     const char* getCharData() const override{
         return d_fulldb_chardata.data();
     }
-    const SequenceLengthT* getLengthData() const override{
+    const cudasw4::SequenceLengthT* getLengthData() const override{
         return d_fulldb_lengthdata.data();
     }
     const size_t* getOffsetData() const override{
@@ -40,7 +40,7 @@ struct GpuDatabaseAllocation : public GpuDatabaseAllocationBase{
     char* getCharData() override{
         return d_fulldb_chardata.data();
     }
-    SequenceLengthT* getLengthData() override{
+    cudasw4::SequenceLengthT* getLengthData() override{
         return d_fulldb_lengthdata.data();
     }
     size_t* getOffsetData() override{
@@ -56,7 +56,7 @@ struct GpuDatabaseAllocation : public GpuDatabaseAllocationBase{
     }
 
     helpers::SimpleAllocationDevice<char, 0> d_fulldb_chardata;
-    helpers::SimpleAllocationDevice<SequenceLengthT, 0> d_fulldb_lengthdata;
+    helpers::SimpleAllocationDevice<cudasw4::SequenceLengthT, 0> d_fulldb_lengthdata;
     helpers::SimpleAllocationDevice<size_t, 0> d_fulldb_offsetdata;
 };
 
@@ -65,7 +65,7 @@ struct GpuDatabaseAllocationView : public GpuDatabaseAllocationBase{
     GpuDatabaseAllocationView() = default;
     GpuDatabaseAllocationView(
         char* chardata_, 
-        SequenceLengthT* lengthdata_,
+        cudasw4::SequenceLengthT* lengthdata_,
         size_t* offsetdata_,
         size_t numChars_,
         size_t numSubjects_
@@ -76,7 +76,7 @@ struct GpuDatabaseAllocationView : public GpuDatabaseAllocationBase{
     const char* getCharData() const override{
         return chardata;
     }
-    const SequenceLengthT* getLengthData() const override{
+    const cudasw4::SequenceLengthT* getLengthData() const override{
         return lengthdata;
     }
     const size_t* getOffsetData() const override{
@@ -85,7 +85,7 @@ struct GpuDatabaseAllocationView : public GpuDatabaseAllocationBase{
     char* getCharData() override{
         return chardata;
     }
-    SequenceLengthT* getLengthData() override{
+    cudasw4::SequenceLengthT* getLengthData() override{
         return lengthdata;
     }
     size_t* getOffsetData() override{
@@ -101,7 +101,7 @@ struct GpuDatabaseAllocationView : public GpuDatabaseAllocationBase{
     }
 
     char* chardata; //numChars
-    SequenceLengthT* lengthdata; // numSubjects
+    cudasw4::SequenceLengthT* lengthdata; // numSubjects
     size_t* offsetdata; //numSubjects + 1
 
     size_t numChars;

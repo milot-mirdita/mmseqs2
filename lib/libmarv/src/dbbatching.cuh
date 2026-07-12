@@ -1,7 +1,7 @@
 #ifndef DBBATCHING_CUH
 #define DBBATCHING_CUH
 
-#include "cuda_hip_rename.h"
+#include "cuda_backend.h"
 
 #include "config.hpp"
 

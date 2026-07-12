@@ -1,7 +1,7 @@
 #ifndef CUDASW4_CUH
 #define CUDASW4_CUH
 
-#include "cuda_hip_rename.h"
+#include "cuda_backend.h"
 
 #include "hpc_helpers/cuda_raiiwrappers.cuh"
 #include "hpc_helpers/all_helpers.cuh"
@@ -12,7 +12,9 @@
 #include "dbdata.hpp"
 #include "length_partitions.hpp"
 #include "util.cuh"
+#ifndef __METAL_BACKEND__
 #include "kernels.cuh"
+#endif
 #include "blosum.hpp"
 #include "types.hpp"
 #include "dbbatching.cuh"
@@ -29,14 +31,16 @@
 #endif
 #include "pssmkernels_smithwaterman.cuh"
 
+#ifdef __METAL_BACKEND__
+#include "metal/pssmkernels_gapless_metal.h"
+#endif
+
 #include "gpudatabaseallocation.cuh"
 
 #include <thrust/binary_search.h>
 #include <thrust/sort.h>
 #include <thrust/equal.h>
-#include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/transform_iterator.h>
-#include <thrust/iterator/constant_iterator.h>
 #include <thrust/merge.h>
 #include <thrust/distance.h>
 #include <thrust/tuple.h>
@@ -2131,6 +2135,7 @@ namespace cudasw4{
                 cudaSetDevice(deviceIds[gpu]); CUERR;
                 auto& ws = *workingSets[gpu];
 
+#ifndef __METAL_BACKEND__
                 if(numGpus > 1){
                     //transform per gpu local sequence indices into global sequence indices
                     if(results_per_query > 0){
@@ -2142,6 +2147,7 @@ namespace cudasw4{
                         ); CUERR;
                     }
                 }
+#endif
 
                 cudaMemcpyAsync(
                     d_finalAlignmentScores_allGpus.data() + results_per_query*gpu,
@@ -2272,6 +2278,7 @@ namespace cudasw4{
                     cudaSetDevice(deviceIds[gpu]); CUERR;
                     auto& ws = *workingSets[gpu];
 
+#ifndef __METAL_BACKEND__
                     if(numGpus > 1){
                         //transform per gpu local sequence indices into global sequence indices
                         if(results_per_query > 0){
@@ -2283,6 +2290,7 @@ namespace cudasw4{
                             ); CUERR;
                         }
                     }
+#endif
 
                     cudaMemcpyAsync(
                         d_finalAlignmentScores_allGpus.data() + results_per_query*gpu,
@@ -4159,6 +4167,21 @@ namespace cudasw4{
             size_t tempStorageBytes,
             cudaStream_t stream
         ){
+#ifdef __METAL_BACKEND__
+            // group_size, tiling are unused on metal
+            (void)d_tempStorage; (void)tempStorageBytes;
+            metalgapless::call_GaplessFilter_metal(
+                d_scores,
+                permutedPSSM,
+                d_inputChars,
+                d_inputLengths,
+                d_inputOffsets,
+                d_selectedPositions,
+                numSequences,
+                currentQueryLength,
+                stream
+            );
+#else
             if(currentQueryLength <= getMaxSingleTileQueryLength_Gapless()){
                 auto config = getSingleTileGroupRegConfigForPSSM_Gapless(currentQueryLength);
 
@@ -4348,8 +4371,9 @@ namespace cudasw4{
                     default:
                         throw std::runtime_error("invalid config.datatype");
                     }
-                }                
+                }
             }
+#endif
         }
 
 
@@ -4365,8 +4389,14 @@ namespace cudasw4{
             char* d_tempStorage,
             size_t tempStorageBytes,
             cudaStream_t stream
-        ){     
-
+        ){
+#ifdef __METAL_BACKEND__
+            // TODO: implement
+            (void)d_scores; (void)permutedPSSM; (void)d_inputChars; (void)d_inputLengths;
+            (void)d_inputOffsets; (void)d_selectedPositions; (void)numSequences;
+            (void)d_tempStorage; (void)tempStorageBytes; (void)stream;
+            throw std::runtime_error("Smith-Waterman is not supported on the Metal backend");
+#else
             if(currentQueryLength <= getMaxSingleTileQueryLength_SW()){
                 auto config = getSingleTileGroupRegConfigForPSSM_SW(currentQueryLength);
 
@@ -4490,6 +4520,7 @@ namespace cudasw4{
                     }
                 }
             }
+#endif
         }
 
         void setNumTopNoCheck(int value){

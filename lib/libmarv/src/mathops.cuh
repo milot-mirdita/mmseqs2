@@ -1,6 +1,7 @@
 #ifndef MATH_OPS_CUH
 #define MATH_OPS_CUH
 
+#if defined(__CUDACC__) || defined(__HIPCC__)
 #if defined(__HIPCC__)
     #include <hip/hip_fp16.h>
     #include <hip/hip_cooperative_groups.h>
@@ -532,4 +533,5 @@ namespace cudasw4{
 
 } //namespace cudasw4
 
+#endif
 #endif
