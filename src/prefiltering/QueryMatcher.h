@@ -55,10 +55,11 @@ public:
     QueryMatcher(IndexTable *indexTable, SequenceLookup *sequenceLookup,
                  BaseMatrix *kmerSubMat, BaseMatrix *ungappedAlignmentSubMat,
                  short kmerThr, int kmerSize, size_t dbSize, unsigned int maxSeqLen,
-                 size_t maxHitsPerQuery, bool aaBiasCorrection, float aaBiasCorrectionScale, bool diagonalScoringMode,
+                 size_t maxHitsPerQuery, int aaBiasCorrection, float aaBiasCorrectionScale, bool diagonalScoringMode,
                  unsigned int minDiagScoreThr, bool takeOnlyBestKmer, bool isNucleotide,
                  BaseMatrix *ungappedAlignmentSubMatAux = NULL,
-                 int targetSeqType = 0);
+                 int targetSeqType = 0,
+                 float aaBiasCorrectionWLocal = 0.5f);
     ~QueryMatcher();
 
     // returns result for the sequence
@@ -148,8 +149,9 @@ protected:
     // k of the k-mer
     int kmerSize;
     // local amino acid bias correction
-    bool aaBiasCorrection;
+    int aaBiasCorrection;
     float scaleBiasCorr;
+    float wLocalBiasCorr;
     // take only best kmer
     bool takeOnlyBestKmer;
     // kmer threshold for kmer generator
@@ -191,6 +193,7 @@ protected:
     size_t maxHitsPerQuery;
 
     float *compositionBias;
+    float *compositionBiasProfile;
     unsigned int *scoreBackup;
 
     // diagonal scoring active

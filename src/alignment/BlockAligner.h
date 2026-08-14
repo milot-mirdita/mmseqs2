@@ -12,8 +12,9 @@ public:
         int dbtype,
         size_t maxSequenceLength,
         BaseMatrix *m, SubstitutionMatrix::FastMatrix* fastMatrix, EvalueComputation * evaluer,
-        bool compBiasCorrection, float compBiasCorrectionScale,
-        int8_t gapOpen, int8_t gapExtend
+        int compBiasCorrection, float compBiasCorrectionScale,
+        int8_t gapOpen, int8_t gapExtend,
+        float compBiasCorrectionWLocal = 0.5f
     );
 
     ~BlockAligner();
@@ -119,9 +120,10 @@ private:
     Gaps gaps;
     SizeRange range;
 
-    bool compBiasCorrection;
+    int compBiasCorrection;
     // weight for the correlation score, if set to 0.0 it is turned off
     float compBiasCorrectionScale;
+    float compBiasCorrectionWLocal;
 
     int dbtype;
     // costs to open and extend a gap
@@ -139,6 +141,7 @@ private:
     int16_t* queryCompBias;
     int16_t* targetCompBias;
     float *tmpCompBias;
+    float *tmpCompBiasDiag;
     int8_t* queryRevNumSeq;
     int16_t* queryCompBiasRev;
     

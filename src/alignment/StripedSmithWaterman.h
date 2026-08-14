@@ -82,8 +82,9 @@ typedef struct {
 class SmithWaterman{
 public:
 
-    SmithWaterman(size_t maxSequenceLength, int aaSize, bool aaBiasCorrection,
-                  float aaBiasCorrectionScale, SubstitutionMatrix * subMat);
+    SmithWaterman(size_t maxSequenceLength, int aaSize, int aaBiasCorrection,
+                  float aaBiasCorrectionScale, SubstitutionMatrix * subMat,
+                  float aaBiasCorrectionWLocal = 0.5f);
     ~SmithWaterman();
 
     // The dynamic programming matrix entries for the query and database sequences are stored sequentially (the order see the Farrar paper).
@@ -293,8 +294,12 @@ private:
     short * profile_word_linear_data;
     int32_t * profile_int_linear_data;
 
-    bool aaBiasCorrection;
+    int aaBiasCorrection;
     float aaBiasCorrectionScale;
+    float aaBiasCorrectionWLocal;
+    // true when composition_bias varies with the target letter, which the block
+    // aligner backend cannot represent (it only takes one bias per query position)
+    bool perLetterCompBias;
     SubstitutionMatrix * subMat;
 
     uint8_t computeBias(const int32_t target_length, const int8_t *mat, const int32_t aaSize);

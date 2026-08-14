@@ -15,13 +15,15 @@ BlockAligner::BlockAligner(
     int dbtype,
     size_t maxSequenceLength,
     BaseMatrix *m, SubstitutionMatrix::FastMatrix* fastMatrix, EvalueComputation * evaluer,
-    bool compBiasCorrection, float compBiasCorrectionScale,
-    int8_t gapOpen, int8_t gapExtend
+    int compBiasCorrection, float compBiasCorrectionScale,
+    int8_t gapOpen, int8_t gapExtend,
+    float compBiasCorrectionWLocal
 ) : 
     maxSequenceLength(maxSequenceLength),
     gaps({gapOpen, gapExtend}),
     compBiasCorrection(compBiasCorrection),
     compBiasCorrectionScale(compBiasCorrectionScale),
+    compBiasCorrectionWLocal(compBiasCorrectionWLocal),
     dbtype(dbtype),
     subMat((SubstitutionMatrix*) m),
     fastMatrix(fastMatrix),
@@ -57,7 +59,8 @@ BlockAligner::BlockAligner(
     memset(queryCompBiasRev, 0, maxSequenceLength * sizeof(int16_t));
     //set targetCompBias to 0
     memset(targetCompBias, 0, maxSequenceLength * sizeof(int16_t));
-    tmpCompBias   = new float[maxSequenceLength];
+    tmpCompBias   = new float[maxSequenceLength * subMat->alphabetSize];
+    tmpCompBiasDiag = new float[maxSequenceLength];
 }
 
 BlockAligner::~BlockAligner() {
@@ -74,6 +77,7 @@ BlockAligner::~BlockAligner() {
     delete[] queryCompBias;
     delete[] targetCompBias;
     delete[] tmpCompBias;
+    delete[] tmpCompBiasDiag;
     delete[] queryRevNumSeq;
     delete[] queryCompBiasRev;
 }
@@ -87,11 +91,21 @@ void BlockAligner::initQuery(Sequence* query){
     memset(queryRevNumSeq, 0, maxSequenceLength * sizeof(int8_t));
     
     std::reverse_copy(queryNumSeq, queryNumSeq + queryLength, queryRevNumSeq);
-    if (Parameters::isEqualDbtype(querySeqType, Parameters::DBTYPE_AMINO_ACIDS)&& compBiasCorrection){
-        SubstitutionMatrix::calcLocalAaBiasCorrection(subMat, queryNumSeq, queryLength, tmpCompBias, compBiasCorrectionScale);
-        for (int i =0; i < queryLength; i++) { 
-            queryCompBias[i] = (int16_t) (tmpCompBias[i]);
-		}
+    if (Parameters::isEqualDbtype(querySeqType, Parameters::DBTYPE_AMINO_ACIDS) && compBiasCorrection != Parameters::COMP_BIAS_CORR_OFF){
+        if (Parameters::isPerLetterCompBias(compBiasCorrection)) {
+            SubstitutionMatrix::calcLocalAaBiasCorrectionProfile(subMat, queryNumSeq, queryLength, tmpCompBias,
+                                                                 compBiasCorrectionScale, compBiasCorrectionWLocal,
+                                                                 Parameters::isCenteredCompBias(compBiasCorrection),
+                                                                 tmpCompBiasDiag);
+            for (int i = 0; i < queryLength; i++) {
+                queryCompBias[i] = (int16_t) tmpCompBiasDiag[i];
+            }
+        } else {
+            SubstitutionMatrix::calcLocalAaBiasCorrection(subMat, queryNumSeq, queryLength, tmpCompBias, compBiasCorrectionScale);
+            for (int i =0; i < queryLength; i++) { 
+                queryCompBias[i] = (int16_t) (tmpCompBias[i]);
+            }
+        }
         memset(this->queryCompBiasRev, 0, this->maxSequenceLength * sizeof(int16_t));
         std::reverse_copy(queryCompBias, queryCompBias + this->queryLength, queryCompBiasRev);
     }

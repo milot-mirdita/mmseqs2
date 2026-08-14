@@ -61,9 +61,11 @@ void runFilterOnGpu(Parameters & par, BaseMatrix * subMat,
     resultBuffer.reserve(262144);
     char buffer[1024+32768];
 
-    size_t compBufferSize = (par.maxSeqLen + 1) * sizeof(float);
+    const bool perLetterBias = Parameters::isPerLetterCompBias(par.compBiasCorrection);
+    const size_t biasEntriesPerPos = perLetterBias ? (size_t)subMat->alphabetSize : 1;
+    size_t compBufferSize = (par.maxSeqLen + 1) * biasEntriesPerPos * sizeof(float);
     float *compositionBias = NULL;
-    if (par.compBiasCorrection == true) {
+    if (par.compBiasCorrection != Parameters::COMP_BIAS_CORR_OFF) {
         compositionBias = (float*)malloc(compBufferSize);
         memset(compositionBias, 0, compBufferSize);
     }
@@ -185,18 +187,25 @@ void runFilterOnGpu(Parameters & par, BaseMatrix * subMat,
                 profile = (int8_t*)realloc(profile, subMat->alphabetSize * profileBufferLength * sizeof(int8_t));
             }
             if (compositionBias != NULL) {
-                if ((size_t)qSeq.L * sizeof(float) >= compBufferSize) {
-                    compBufferSize = (size_t)qSeq.L * 1.5 * sizeof(float);
+                if ((size_t)qSeq.L * biasEntriesPerPos * sizeof(float) >= compBufferSize) {
+                    compBufferSize = (size_t)(qSeq.L * 1.5) * biasEntriesPerPos * sizeof(float);
                     compositionBias = (float*)realloc(compositionBias, compBufferSize);
                     // memset(compositionBias, 0, compBufferSize);
                 }
-                SubstitutionMatrix::calcLocalAaBiasCorrection(subMat, qSeq.numSequence, qSeq.L, compositionBias, par.compBiasCorrectionScale);
+                if (perLetterBias) {
+                    SubstitutionMatrix::calcLocalAaBiasCorrectionProfile(subMat, qSeq.numSequence, qSeq.L, compositionBias,
+                                                                         par.compBiasCorrectionScale, par.compBiasCorrectionWLocal,
+                                                                         Parameters::isCenteredCompBias(par.compBiasCorrection));
+                } else {
+                    SubstitutionMatrix::calcLocalAaBiasCorrection(subMat, qSeq.numSequence, qSeq.L, compositionBias, par.compBiasCorrectionScale);
+                }
             }
             for (size_t j = 0; j < (size_t)subMat->alphabetSize; ++j) {
                 for (size_t i = 0; i < (size_t)qSeq.L; ++i) {
                     short bias = 0;
                     if (compositionBias != NULL) {
-                        bias = static_cast<short>((compositionBias[i] < 0.0) ? (compositionBias[i] - 0.5) : (compositionBias[i] + 0.5));
+                        const float b = perLetterBias ? compositionBias[i * biasEntriesPerPos + j] : compositionBias[i];
+                        bias = static_cast<short>((b < 0.0) ? (b - 0.5) : (b + 0.5));
                     }
                     profile[j * qSeq.L  + i] = subMat->subMatrix[j][qSeq.numSequence[i]] + bias;
                 }
@@ -367,7 +376,7 @@ void runFilterOnCpu(Parameters & par, BaseMatrix * subMat, int8_t * tinySubMat,
         Sequence qSeq(par.maxSeqLen, querySeqType, subMat, 0, false, par.compBiasCorrection);
         Sequence tSeq(par.maxSeqLen, targetSeqType, subMat, 0, false, par.compBiasCorrection);
         SmithWaterman aligner(par.maxSeqLen, subMat->alphabetSize,
-                              par.compBiasCorrection, par.compBiasCorrectionScale, NULL);
+                              par.compBiasCorrection, par.compBiasCorrectionScale, NULL, par.compBiasCorrectionWLocal);
 
         std::string resultBuffer;
         resultBuffer.reserve(262144);

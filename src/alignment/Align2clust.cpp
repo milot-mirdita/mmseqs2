@@ -536,13 +536,15 @@ int doAlign2clust(Parameters &par, DBWriter &resultWriter, DBReader<DBKeyType> &
         Matcher matcher(Parameters::DBTYPE_AMINO_ACIDS, db_maxseqlen, subMat, &evaluer, 
                        par.compBiasCorrection, par.compBiasCorrectionScale, 
                        par.gapOpen.values.aminoacid(), par.gapExtend.values.aminoacid(), 
-                       0.0, par.zdrop);
+                       0.0, par.zdrop,
+                       par.compBiasCorrectionWLocal);
         Sequence query(db_maxseqlen, Parameters::DBTYPE_AMINO_ACIDS, subMat, 0, false, par.compBiasCorrection);
         Sequence target(db_maxseqlen, Parameters::DBTYPE_AMINO_ACIDS, subMat, 0, false, par.compBiasCorrection);
         Sequence element(db_maxseqlen, Parameters::DBTYPE_AMINO_ACIDS, subMat, 0, false, par.compBiasCorrection);
         BlockAligner blockAligner(Parameters::DBTYPE_AMINO_ACIDS, db_maxseqlen, subMat, &fastMatrix, 
                                  &evaluer, par.compBiasCorrection, par.compBiasCorrectionScale, 
-                                 -par.gapOpen.values.aminoacid(), -par.gapExtend.values.aminoacid());
+                                 -par.gapOpen.values.aminoacid(), -par.gapExtend.values.aminoacid(),
+                                 par.compBiasCorrectionWLocal);
         std::vector<std::pair<DBKeyType, unsigned short>> targetsWithDiagonal;
         targetsWithDiagonal.reserve(1000);
 

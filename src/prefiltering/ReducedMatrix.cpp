@@ -125,6 +125,12 @@ ReducedMatrix::ReducedMatrix(double **probMatrix, float ** rMatrix,
         probMatrix_new[i][alphabetSize-1] = Pab * pBack[alphabetSize-1] * pBack[i];
     }
     delete [] origpBack;
+    // keep probMatrix consistent with subMatrix and pBack
+    for (int i = 0; i < this->alphabetSize; i++) {
+        for (int j = 0; j < this->alphabetSize; j++) {
+            this->probMatrix[i][j] = probMatrix_new[i][j];
+        }
+    }
     generateSubMatrix(probMatrix_new, rMatrix, this->subMatrix, alphabetSize, true, bitFactor, 0.0);
 
 

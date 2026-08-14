@@ -83,8 +83,9 @@ private:
     size_t maxSeqLen;
     int querySeqType;
     int targetSeqType;
-    bool compBiasCorrection;
+    int compBiasCorrection;
     float compBiasCorrectionScale;
+    float compBiasCorrectionWLocal;
 
     int altAlignment;
     int alignmentOutputMode;

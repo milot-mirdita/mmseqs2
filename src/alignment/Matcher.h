@@ -147,9 +147,9 @@ public:
     };
 
     Matcher(int querySeqType, int maxSeqLen, BaseMatrix *m,
-            EvalueComputation * evaluer, bool aaBiasCorrection, float aaBiasCorrectionScale,
+            EvalueComputation * evaluer, int aaBiasCorrection, float aaBiasCorrectionScale,
             int gapOpen, int gapExtend, float correlationScoreWeight,
-            int zdrop);
+            int zdrop, float aaBiasCorrectionWLocal = 0.5f);
 
     ~Matcher();
 

@@ -385,18 +385,27 @@ inline const unsigned char* UngappedAlignment::getDbSeq(DBLocalId seqId, unsigne
     return raw.first;
 }
 
+// the prefilter computes the bias with the seeding matrix (bit factor 8) while the diagonal
+// scores use the ungapped matrix (bit factor 2)
+inline char roundDiagonalBias(float bias) {
+    bias = bias / 4.0f;
+    bias = (bias < 0.0f) ? bias - 0.5f : bias + 0.5f;
+    return static_cast<char>(bias);
+}
+
 void UngappedAlignment::createProfile(Sequence *seq,
-                                      float * biasCorrection,
-                                      const unsigned char *numSeqOverride) {
+                                      const float * biasCorrection,
+                                      const unsigned char *numSeqOverride,
+                                      const float * biasCorrectionProfile) {
     queryLen = seq->L;
     memset(queryProfile, 0, (Sequence::PROFILE_AA_SIZE + 1) * seq->L);
     if(Parameters::isEqualDbtype(seq->getSequenceType(), Parameters::DBTYPE_HMM_PROFILE)) {
         // profile path: aaCorrectionScore not used
+    } else if (biasCorrectionProfile != NULL) {
+        // handled per target letter below
     } else if (biasCorrection != NULL) {
         for (int pos = 0; pos < seq->L; pos++) {
-            float aaCorrBias = biasCorrection[pos];
-            aaCorrBias = (aaCorrBias < 0.0) ? aaCorrBias/4 - 0.5 : aaCorrBias/4 + 0.5;
-            aaCorrectionScore[pos] = static_cast<char>(aaCorrBias);
+            aaCorrectionScore[pos] = roundDiagonalBias(biasCorrection[pos]);
         }
     } else {
         memset(aaCorrectionScore, 0, seq->L);
@@ -411,10 +420,18 @@ void UngappedAlignment::createProfile(Sequence *seq,
         }
     }else{
         const unsigned char *numSeq = (numSeqOverride != NULL) ? numSeqOverride : seq->numSequence;
+        const int alphabetSize = subMatrix->alphabetSize;
         for (int pos = 0; pos < seq->L; pos++) {
             unsigned int aaIdx = numSeq[pos];
-            for (int i = 0; i < subMatrix->alphabetSize; i++) {
-                queryProfile[pos * (Sequence::PROFILE_AA_SIZE + 1) + i] = (subMatrix->subMatrix[aaIdx][i] + aaCorrectionScore[pos]);
+            if (biasCorrectionProfile != NULL) {
+                const float *bias = biasCorrectionProfile + pos * alphabetSize;
+                for (int i = 0; i < alphabetSize; i++) {
+                    queryProfile[pos * (Sequence::PROFILE_AA_SIZE + 1) + i] = (subMatrix->subMatrix[aaIdx][i] + roundDiagonalBias(bias[i]));
+                }
+            } else {
+                for (int i = 0; i < alphabetSize; i++) {
+                    queryProfile[pos * (Sequence::PROFILE_AA_SIZE + 1) + i] = (subMatrix->subMatrix[aaIdx][i] + aaCorrectionScore[pos]);
+                }
             }
         }
     }

@@ -149,7 +149,7 @@ int result2profile(int argc, const char **argv, const Command &command, bool ret
 
         Matcher matcher(qDbr->getDbtype(), maxSequenceLength, &subMat, &evalueComputation,
                         par.compBiasCorrection, par.compBiasCorrectionScale,
-                        par.gapOpen.values.aminoacid(), par.gapExtend.values.aminoacid(), 0.0, par.zdrop);
+                        par.gapOpen.values.aminoacid(), par.gapExtend.values.aminoacid(), 0.0, par.zdrop, par.compBiasCorrectionWLocal);
         Masker masker(subMat);
         MultipleAlignment aligner(maxSequenceLength, &subMat);
         PSSMCalculator calculator(

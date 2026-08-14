@@ -22,10 +22,11 @@
 QueryMatcher::QueryMatcher(IndexTable *indexTable, SequenceLookup *sequenceLookup,
                            BaseMatrix *kmerSubMat, BaseMatrix *ungappedAlignmentSubMat,
                            short kmerThr, int kmerSize, size_t dbSize,
-                           unsigned int maxSeqLen, size_t maxHitsPerQuery, bool aaBiasCorrection, float aaBiasCorrectionScale,
+                           unsigned int maxSeqLen, size_t maxHitsPerQuery, int aaBiasCorrection, float aaBiasCorrectionScale,
                            bool diagonalScoring, unsigned int minDiagScoreThr, bool takeOnlyBestKmer, bool isNucleotide,
                            BaseMatrix *ungappedAlignmentSubMatAux,
-                           int targetSeqType)
+                           int targetSeqType,
+                           float aaBiasCorrectionWLocal)
         : idx(indexTable->getAlphabetSize(), kmerSize), isNucleotide(isNucleotide), hook(NULL)
 {
     this->kmerSubMat = kmerSubMat;
@@ -36,6 +37,7 @@ QueryMatcher::QueryMatcher(IndexTable *indexTable, SequenceLookup *sequenceLooku
     this->kmerGenerator = new KmerGenerator(kmerSize, indexTable->getAlphabetSize(), kmerThr);
     this->aaBiasCorrection = aaBiasCorrection;
     this->scaleBiasCorr = aaBiasCorrectionScale;
+    this->wLocalBiasCorr = aaBiasCorrectionWLocal;
     this->takeOnlyBestKmer = takeOnlyBestKmer;
     this->stats = new statistics_t();
     // assure that the whole database can be matched (extreme case)
@@ -76,6 +78,8 @@ QueryMatcher::QueryMatcher(IndexTable *indexTable, SequenceLookup *sequenceLooku
         }
     }
     compositionBias = new float[maxSeqLen];
+    compositionBiasProfile = Parameters::isPerLetterCompBias(aaBiasCorrection)
+                             ? new float[(size_t)maxSeqLen * kmerSubMat->alphabetSize] : NULL;
     scoreBackup = (ungappedAlignmentAux != NULL) ? new unsigned int[foundDiagonalsSize] : NULL;
 }
 
@@ -87,6 +91,7 @@ QueryMatcher::~QueryMatcher(){
     delete[] indexPointer;
     free(foundDiagonals);
     delete[] compositionBias;
+    delete[] compositionBiasProfile;
     if (scoreBackup != NULL) {
         delete[] scoreBackup;
     }
@@ -106,17 +111,25 @@ std::pair<hit_t*, size_t> QueryMatcher::matchQuery(Sequence *querySeq, DBLocalId
     memset(scoreSizes, 0, SCORE_RANGE * sizeof(unsigned int));
 
     // bias correction
-    if(aaBiasCorrection == true){
-        if(Parameters::isEqualDbtype(querySeq->getSeqType(), Parameters::DBTYPE_AMINO_ACIDS)) {
+    bool hasBiasProfile = false;
+    if (aaBiasCorrection != Parameters::COMP_BIAS_CORR_OFF
+        && Parameters::isEqualDbtype(querySeq->getSeqType(), Parameters::DBTYPE_AMINO_ACIDS)) {
+        if (Parameters::isPerLetterCompBias(aaBiasCorrection) && compositionBiasProfile != NULL) {
+            SubstitutionMatrix::calcLocalAaBiasCorrectionProfile(kmerSubMat, querySeq->numSequence, querySeq->L,
+                                                                 compositionBiasProfile, scaleBiasCorr, wLocalBiasCorr,
+                                                                 Parameters::isCenteredCompBias(aaBiasCorrection),
+                                                                 // the k-mer stage does not know the target letter yet
+                                                                 compositionBias);
+            hasBiasProfile = true;
+        } else {
             SubstitutionMatrix::calcLocalAaBiasCorrection(kmerSubMat, querySeq->numSequence, querySeq->L, compositionBias, scaleBiasCorr);
-        }else{
-            memset(compositionBias, 0, sizeof(float) * querySeq->L);
         }
     } else {
         memset(compositionBias, 0, sizeof(float) * querySeq->L);
     }
     if(diagonalScoring == true){
-        ungappedAlignment->createProfile(querySeq, compositionBias);
+        ungappedAlignment->createProfile(querySeq, compositionBias, NULL,
+                                         hasBiasProfile ? compositionBiasProfile : NULL);
         if (ungappedAlignmentAux != NULL && querySeq->numSequenceAux != NULL) {
             ungappedAlignmentAux->createProfile(querySeq, NULL, querySeq->numSequenceAux);
         }

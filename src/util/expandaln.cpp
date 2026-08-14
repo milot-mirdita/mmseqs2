@@ -24,7 +24,7 @@
 #include <omp.h>
 #endif
 
-void rescoreResultByBacktrace(Matcher::result_t &result, Sequence &qSeq, Sequence &tSeq, SubstitutionMatrix &subMat, float *compositionBias, int gapOpen, int gapExtend) {
+void rescoreResultByBacktrace(Matcher::result_t &result, Sequence &qSeq, Sequence &tSeq, SubstitutionMatrix &subMat, float *compositionBias, size_t biasEntriesPerPos, int gapOpen, int gapExtend) {
     size_t qPos = result.qStartPos;
     size_t tPos = result.dbStartPos;
     int score = 0;
@@ -48,7 +48,9 @@ void rescoreResultByBacktrace(Matcher::result_t &result, Sequence &qSeq, Sequenc
             } else if (isQueryProf) {
                 score += qSeq.profile_for_alignment[tSeq.numSequence[tPos] * qSeq.L + qPos];
             } else {
-                score += subMat.subMatrix[qSeq.numSequence[qPos]][tSeq.numSequence[tPos]] + static_cast<short>((compositionBias[qPos] < 0.0) ? (compositionBias[qPos] - 0.5) : (compositionBias[qPos] + 0.5));
+                const float bias = (biasEntriesPerPos == 1) ? compositionBias[qPos]
+                                                            : compositionBias[qPos * biasEntriesPerPos + tSeq.numSequence[tPos]];
+                score += subMat.subMatrix[qSeq.numSequence[qPos]][tSeq.numSequence[tPos]] + static_cast<short>((bias < 0.0) ? (bias - 0.5) : (bias + 0.5));
             }
             identities += qSeq.numSequence[qPos] == tSeq.numSequence[tPos] ? 1 : 0;
             qPos++;
@@ -213,7 +215,9 @@ int expandaln(int argc, const char **argv, const Command& command, bool returnAl
             seqSet.reserve(300);
         }
 
-        size_t compBufferSize = (par.maxSeqLen + 1) * sizeof(float);
+        const bool perLetterBias = Parameters::isPerLetterCompBias(par.compBiasCorrection);
+        const size_t biasEntriesPerPos = perLetterBias ? (size_t)subMat.alphabetSize : 1;
+        size_t compBufferSize = (par.maxSeqLen + 1) * biasEntriesPerPos * sizeof(float);
         float *compositionBias = NULL;
         if (par.expansionMode == Parameters::EXPAND_RESCORE_BACKTRACE) {
             compositionBias = (float*)malloc(compBufferSize);
@@ -244,14 +248,20 @@ int expandaln(int argc, const char **argv, const Command& command, bool returnAl
             }
 
             if (par.expansionMode == Parameters::EXPAND_RESCORE_BACKTRACE
-                && par.compBiasCorrection == true
+                && par.compBiasCorrection != Parameters::COMP_BIAS_CORR_OFF
                 && Parameters::isEqualDbtype(aSeqDbType, Parameters::DBTYPE_AMINO_ACIDS)) {
-                if ((size_t)aSeq.L >= compBufferSize) {
-                    compBufferSize = (size_t)aSeq.L * 1.5 * sizeof(float);
+                if ((size_t)aSeq.L * biasEntriesPerPos * sizeof(float) >= compBufferSize) {
+                    compBufferSize = (size_t)(aSeq.L * 1.5) * biasEntriesPerPos * sizeof(float);
                     compositionBias = (float*)realloc(compositionBias, compBufferSize);
                     memset(compositionBias, 0, compBufferSize);
                 }
-                SubstitutionMatrix::calcLocalAaBiasCorrection(&subMat, aSeq.numSequence, aSeq.L, compositionBias, par.compBiasCorrectionScale);
+                if (perLetterBias) {
+                    SubstitutionMatrix::calcLocalAaBiasCorrectionProfile(&subMat, aSeq.numSequence, aSeq.L, compositionBias,
+                                                                         par.compBiasCorrectionScale, par.compBiasCorrectionWLocal,
+                                                                         Parameters::isCenteredCompBias(par.compBiasCorrection));
+                } else {
+                    SubstitutionMatrix::calcLocalAaBiasCorrection(&subMat, aSeq.numSequence, aSeq.L, compositionBias, par.compBiasCorrectionScale);
+                }
             }
 
             char *data = resultAbReader->getData(i, thread_idx);
@@ -353,7 +363,7 @@ int expandaln(int argc, const char **argv, const Command& command, bool returnAl
                         //   continue;
                         //}
                         if (par.expansionMode == Parameters::EXPAND_RESCORE_BACKTRACE) {
-                            rescoreResultByBacktrace(resultAc, aSeq, cSeq, subMat, compositionBias, par.gapOpen.values.aminoacid(), par.gapExtend.values.aminoacid());
+                            rescoreResultByBacktrace(resultAc, aSeq, cSeq, subMat, compositionBias, biasEntriesPerPos, par.gapOpen.values.aminoacid(), par.gapExtend.values.aminoacid());
                             // alignment too bad (fitted on regression benchmark EXPAND)
                             if (resultAc.score < -6) {
                                 continue;

@@ -651,12 +651,15 @@ std::pair<alignment_end, alignment_end> sw_sse2_int(
 	#undef max4
 }
 
-SmithWaterman::SmithWaterman(size_t maxSequenceLength, int aaSize, bool aaBiasCorrection,
-                             float aaBiasCorrectionScale, SubstitutionMatrix * subMat) {
+SmithWaterman::SmithWaterman(size_t maxSequenceLength, int aaSize, int aaBiasCorrection,
+                             float aaBiasCorrectionScale, SubstitutionMatrix * subMat,
+                             float aaBiasCorrectionWLocal) {
 	maxSequenceLength += 1;
 	this->subMat = subMat;
     this->aaBiasCorrectionScale = aaBiasCorrectionScale;
 	this->aaBiasCorrection = aaBiasCorrection;
+	this->aaBiasCorrectionWLocal = aaBiasCorrectionWLocal;
+	this->perLetterCompBias = false;
 
 	// int32_t alignment needs larger seqSize, was +7/8 for word before
     segSize = (maxSequenceLength+3)/4;
@@ -682,15 +685,15 @@ SmithWaterman::SmithWaterman(size_t maxSequenceLength, int aaSize, bool aaBiasCo
 	// query sequence
     profile->query_sequence     = new int8_t[maxSequenceLength];
 	profile->query_rev_sequence = new int8_t[maxSequenceLength];
-	profile->composition_bias   = new int8_t[maxSequenceLength];
-	profile->composition_bias_rev   = new int8_t[maxSequenceLength];
+	profile->composition_bias   = new int8_t[maxSequenceLength * aaSize];
+	profile->composition_bias_rev   = new int8_t[maxSequenceLength * aaSize];
 	profile->profile_word_linear = new short*[aaSize];
 	profile_word_linear_data = new short[aaSize*maxSequenceLength];
 	profile->profile_int_linear = new int32_t*[aaSize];
 	profile_int_linear_data = new int32_t[aaSize*maxSequenceLength];
 	profile->mat_rev            = new int8_t[std::max(maxSequenceLength, (size_t)aaSize) * aaSize * 2]; // why multiply 2?
 	profile->mat                = new int8_t[std::max(maxSequenceLength, (size_t)aaSize) * aaSize * 2];
-	tmp_composition_bias   = new float[maxSequenceLength];
+	tmp_composition_bias   = new float[maxSequenceLength * aaSize];
     scorePerCol = new int8_t[maxSequenceLength];
     /* array to record the largest score of each reference position */
 	simdData->maxColumn = new uint8_t[maxSequenceLength*sizeof(uint32_t)];
@@ -698,8 +701,8 @@ SmithWaterman::SmithWaterman(size_t maxSequenceLength, int aaSize, bool aaBiasCo
 	memset(profile->query_sequence, 0, maxSequenceLength * sizeof(int8_t));
 	memset(profile->query_rev_sequence, 0, maxSequenceLength * sizeof(int8_t));
 	memset(profile->mat_rev, 0, maxSequenceLength * aaSize);
-	memset(profile->composition_bias, 0, maxSequenceLength * sizeof(int8_t));
-	memset(profile->composition_bias_rev, 0, maxSequenceLength * sizeof(int8_t));
+	memset(profile->composition_bias, 0, maxSequenceLength * aaSize * sizeof(int8_t));
+	memset(profile->composition_bias_rev, 0, maxSequenceLength * aaSize * sizeof(int8_t));
 
 	// blockaligner
 	block = new s_block();
@@ -767,7 +770,7 @@ void createQueryProfile(simd_int *profile, const int8_t *query_sequence, const i
 						*t++ = bias;
 					} else {
 						const int q = query_sequence[j + offset];
-						const float cb = composition_bias[j + offset];
+						const float cb = composition_bias[(j + offset) * aaSize + nt];
 						*t++ = mat[nt * aaSize + q] + cb + bias;
 					}
 				} if(type == SmithWaterman::PROFILE) {
@@ -864,7 +867,9 @@ s_align SmithWaterman::ssw_align_private (
 
 	// run very shot and long overflowing alignments with SW instead of block aligner
 	// short alignments are very fast with byte SW, long alignments produce slightly different scores FIXME
-	if (align.word != 1) {
+	// FIXME: a per-letter composition bias cannot be expressed as the block aligner's per-position
+	// query bias, so its score could never match and it would always fall back anyway
+	if (align.word != 1 || perLetterCompBias) {
 		return alignStartPosBacktrace<type>(db_sequence, db_length, gap_open, gap_extend, alignmentMode, backtrace, align, evaluer, covMode, covThr, correlationScoreWeight, maskLen);
 	}
 
@@ -1228,7 +1233,7 @@ s_align SmithWaterman::alignStartPosBacktrace (
 							   query_length, r.qStartPos1, r.score1, gap_open, gap_extend,
 							   band_width, profile->mat, profile->query_length);
 	} else {
-        path = banded_sw<type>(db_sequence + r.dbStartPos1, profile->query_sequence + r.qStartPos1, profile->composition_bias + r.qStartPos1, db_length,
+        path = banded_sw<type>(db_sequence + r.dbStartPos1, profile->query_sequence + r.qStartPos1, profile->composition_bias + r.qStartPos1 * profile->alphabetSize, db_length,
 							   query_length, r.qStartPos1, r.score1, gap_open, gap_extend,
 							   band_width, profile->mat, profile->alphabetSize);
 		db_length = r.dbEndPos1 - r.dbStartPos1 + 1;
@@ -1288,7 +1293,7 @@ void SmithWaterman::computerBacktrace(s_profile * query, const unsigned char * d
         for (uint32_t i = 0; i < length; ++i){
             if (letter == 'M') {
                 aaIds += (db_sequence[targetPos] == query->query_sequence[queryPos]);
-				scorePerCol[mStatesCnt] = query->mat[query->query_sequence[queryPos] * query->alphabetSize + db_sequence[targetPos]] + query->composition_bias[queryPos];
+				scorePerCol[mStatesCnt] = query->mat[query->query_sequence[queryPos] * query->alphabetSize + db_sequence[targetPos]] + query->composition_bias[queryPos * query->alphabetSize + db_sequence[targetPos]];
                 ++mStatesCnt;
                 ++queryPos;
                 ++targetPos;
@@ -1373,15 +1378,29 @@ void SmithWaterman::ssw_init(const Sequence* q,
 	bool isProfile = Parameters::isEqualDbtype(q->getSequenceType(), Parameters::DBTYPE_HMM_PROFILE);
 	profile->isProfile = isProfile;
 	int32_t compositionBias = 0;
-	if (!isProfile && aaBiasCorrection) {
-		SubstitutionMatrix::calcLocalAaBiasCorrection(m, q->numSequence, q->L, tmp_composition_bias, aaBiasCorrectionScale);
-		for (int i =0; i < q->L; i++) {
+	perLetterCompBias = (!isProfile && Parameters::isPerLetterCompBias(aaBiasCorrection));
+	if (!isProfile && aaBiasCorrection != Parameters::COMP_BIAS_CORR_OFF) {
+		if (Parameters::isPerLetterCompBias(aaBiasCorrection)) {
+			SubstitutionMatrix::calcLocalAaBiasCorrectionProfile(m, q->numSequence, q->L, tmp_composition_bias,
+			                                                     aaBiasCorrectionScale, aaBiasCorrectionWLocal,
+			                                                     Parameters::isCenteredCompBias(aaBiasCorrection));
+		} else {
+			// one correction per query position, replicated across all target letters
+			SubstitutionMatrix::calcLocalAaBiasCorrection(m, q->numSequence, q->L, tmp_composition_bias, aaBiasCorrectionScale);
+			for (int i = q->L - 1; i >= 0; i--) {
+				const float bias = tmp_composition_bias[i];
+				for (int aa = 0; aa < alphabetSize; aa++) {
+					tmp_composition_bias[i * alphabetSize + aa] = bias;
+				}
+			}
+		}
+		for (int i = 0; i < q->L * alphabetSize; i++) {
 			profile->composition_bias[i] = (int8_t) (tmp_composition_bias[i] < 0.0)? tmp_composition_bias[i] - 0.5: tmp_composition_bias[i] + 0.5;
 			compositionBias = (compositionBias < profile->composition_bias[i]) ? compositionBias : profile->composition_bias[i];
 		}
 		compositionBias = std::min(compositionBias, 0);
 	} else {
-		memset(profile->composition_bias, 0, q->L* sizeof(int8_t));
+		memset(profile->composition_bias, 0, q->L * alphabetSize * sizeof(int8_t));
 	}
 
 	// copy memory to local memory
@@ -1434,14 +1453,19 @@ void SmithWaterman::ssw_init(const Sequence* q,
         for (int32_t i = 0; i< alphabetSize; i++) {
             profile->profile_word_linear[i] = &profile_word_linear_data[i*q->L];
             for (int j = 0; j < q->L; j++) {
-                profile->profile_word_linear[i][j] = mat[i * alphabetSize + q->numSequence[j]] + profile->composition_bias[j];
+                profile->profile_word_linear[i][j] = mat[i * alphabetSize + q->numSequence[j]] + profile->composition_bias[j * alphabetSize + i];
             }
         }
     }
 
 	// create reverse structures
 	std::reverse_copy(profile->query_sequence, profile->query_sequence + q->L, profile->query_rev_sequence);
-	std::reverse_copy(profile->composition_bias, profile->composition_bias + q->L, profile->composition_bias_rev);
+	// reverse the position axis, keep the target letter axis in place
+	for (int32_t i = 0; i < q->L; i++) {
+		memcpy(profile->composition_bias_rev + i * alphabetSize,
+		       profile->composition_bias + (q->L - 1 - i) * alphabetSize,
+		       alphabetSize * sizeof(int8_t));
+	}
 
 	if (isProfile) {
 		for (int32_t i = 0; i < alphabetSize; i++) {
@@ -1462,8 +1486,10 @@ void SmithWaterman::ssw_init(const Sequence* q,
 		}
 	}
 	else {
+		// the block aligner only takes one bias per query position, so reduce the
+		// per-letter correction to the query's own letter
 		for (int i = 0; i < q->L; i++) {
-			block->query_bias_arr[i] = profile->composition_bias_rev[i];
+			block->query_bias_arr[i] = profile->composition_bias_rev[i * alphabetSize + profile->query_rev_sequence[i]];
 		}
 
 		for (int aa1 = 0; aa1 < m->alphabetSize; aa1++) {
@@ -1566,7 +1592,7 @@ SmithWaterman::cigar * SmithWaterman::banded_sw(const unsigned char *db_sequence
 				    // db_sequence is a numerical sequence
                     temp2 = h_b[d] + mat[db_sequence[j] * qry_n + (queryStart + i)];
                 } else {
-                    temp2 = h_b[d] + mat[query_sequence[i] * qry_n + db_sequence[j]] + compositionBias[i];
+                    temp2 = h_b[d] + mat[query_sequence[i] * qry_n + db_sequence[j]] + compositionBias[i * qry_n + db_sequence[j]];
 				}
 
 				h_c[u] = temp1 > temp2 ? temp1 : temp2;

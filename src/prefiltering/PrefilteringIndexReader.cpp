@@ -55,7 +55,7 @@ void PrefilteringIndexReader::createIndexFile(const std::string &outDB,
                                               DBReader<DBKeyType> *alndbr,
                                               BaseMatrix *subMat, int maxSeqLen,
                                               bool hasSpacedKmer, const std::string &spacedKmerPattern,
-                                              bool compBiasCorrection, int alphabetSize, int kmerSize, int maskMode,
+                                              int compBiasCorrection, int alphabetSize, int kmerSize, int maskMode,
                                               int maskLowerCase, float maskProb, int maskNrepeats, int kmerThr, int targetSearchMode, int splits,
                                               int indexSubset) {
     const bool needKmerIndex = (indexSubset & Parameters::INDEX_SUBSET_NO_PREFILTER) == 0;
@@ -76,7 +76,7 @@ void PrefilteringIndexReader::createIndexFile(const std::string &outDB,
     writer.alignToPageSize(SPLIT_META);
 
     Debug(Debug::INFO) << "Write META (" << META << ")\n";
-    const int biasCorr = compBiasCorrection ? 1 : 0;
+    const int biasCorr = compBiasCorrection;
     const int mask = maskMode > 0;
     const int spacedKmer = (hasSpacedKmer) ? 1 : 0;
     const int headers1 = (hdbr1 != NULL) ? 1 : 0;

@@ -18,11 +18,41 @@ public:
 
     virtual ~SubstitutionMatrix();
 
-    virtual float getBitFactor() {return bitFactor; }
+    virtual float getBitFactor() const {return bitFactor; }
 
     virtual double getBackgroundProb(size_t aa_index) { return pBack[aa_index]; }
 
     static void calcLocalAaBiasCorrection(const BaseMatrix *m ,const unsigned char *int_sequence, const int N, float *compositionBias, float scale);
+
+    // radius d of the local window used by the compositional bias corrections
+    // window around position i is [i-d, i+d] and 2*d+1 letters wide
+    static const int COMP_BIAS_WINDOW_RADIUS = 20;
+
+    /*
+     * Query-side compositional bias correction by local arithmetic averaging of
+     * letter probabilities.
+     *
+     * The uncorrected profile score of query position i against target letter b is
+     *     S(i,b)  = log2( p_i(b) / f_db(b) )
+     * with p_i(b) = p(b|x_i) taken from the substitution matrix. The correction
+     * replaces the database background f_db by a local background
+     *     f_i(b) = wLocal * 1/(2d+1) * sum_{k=i-d}^{i+d} p_k(b) + (1 - wLocal) * f_db(b)
+     *     S'(i,b) = log2( p_i(b) / f_i(b) )
+     * so the additive correction on top of the plain substitution matrix score is
+     *     delta(i,b) = -log2( f_i(b) / f_db(b) ),
+     * which depends on the target letter b but not on the query letter at i.
+     *
+     * compositionBias must hold N * m->alphabetSize floats and is filled in
+     * position-major order, i.e. compositionBias[i * alphabetSize + b].
+     */
+    // compositionBiasDiagonal, if given, receives N floats: the correction projected onto the
+    // query's own letter, for the stages that cannot score against a known target letter
+    // (the k-mer threshold). Position i is left out of its own local background there, see below.
+    static void calcLocalAaBiasCorrectionProfile(const BaseMatrix *m, const unsigned char *int_sequence,
+                                                 const int N, float *compositionBias, float scale, float wLocal,
+                                                 bool centerExpectation = false,
+                                                 float *compositionBiasDiagonal = NULL);
+
     static void calcProfileProfileLocalAaBiasCorrection(short *profileScores,
                                                         const size_t profileAASize,
                                                         const int N,

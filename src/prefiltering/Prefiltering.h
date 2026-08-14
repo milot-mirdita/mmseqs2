@@ -106,8 +106,9 @@ private:
     int querySeqType;
     const unsigned int diagonalScoring;
     const unsigned int minDiagScoreThr;
-    bool aaBiasCorrection;
+    int aaBiasCorrection;
     float aaBiasCorrectionScale;
+    float aaBiasCorrectionWLocal;
     const float covThr;
     const int covMode;
     const bool includeIdentical;

@@ -11,7 +11,8 @@
 
 
 Matcher::Matcher(int querySeqType, int maxSeqLen, BaseMatrix *m, EvalueComputation * evaluer,
-                 bool aaBiasCorrection, float aaBiasCorrectionScale, int gapOpen, int gapExtend, float correlationScoreWeight, int zdrop)
+                 int aaBiasCorrection, float aaBiasCorrectionScale, int gapOpen, int gapExtend, float correlationScoreWeight, int zdrop,
+                 float aaBiasCorrectionWLocal)
                  : gapOpen(gapOpen), gapExtend(gapExtend), correlationScoreWeight(correlationScoreWeight), m(m), evaluer(evaluer), tinySubMat(NULL) {
     if (Parameters::isEqualDbtype(querySeqType, Parameters::DBTYPE_NUCLEOTIDES)) {
         nuclaligner = new BandedNucleotideAligner(m, maxSeqLen, gapOpen, gapExtend, zdrop);
@@ -19,7 +20,7 @@ Matcher::Matcher(int querySeqType, int maxSeqLen, BaseMatrix *m, EvalueComputati
     } else {
         nuclaligner = NULL;
         aligner = new SmithWaterman(maxSeqLen, m->alphabetSize, aaBiasCorrection,
-                                    aaBiasCorrectionScale, (SubstitutionMatrix*) m);
+                                    aaBiasCorrectionScale, (SubstitutionMatrix*) m, aaBiasCorrectionWLocal);
         setSubstitutionMatrix(m);
     }
     //std::cout << "lambda=" << lambdaLog2 << " logKLog2=" << logKLog2 << std::endl;

@@ -108,6 +108,137 @@ void SubstitutionMatrix::calcLocalAaBiasCorrection(const BaseMatrix *m,
     }
 }
 
+void SubstitutionMatrix::calcLocalAaBiasCorrectionProfile(const BaseMatrix *m,
+                                                          const unsigned char *int_sequence,
+                                                          const int N,
+                                                          float *compositionBias,
+                                                          float scale,
+                                                          float wLocal,
+                                                          bool centerExpectation,
+                                                          float *compositionBiasDiagonal) {
+    if (N <= 0) {
+        return;
+    }
+    const int alphabetSize = m->alphabetSize;
+    const int d = COMP_BIAS_WINDOW_RADIUS;
+    const float bitFactor = m->getBitFactor();
+
+    // condProb[b * alphabetSize + a] = p(a|b) = p(a,b) / p(b). The row sum is used
+    // instead of pBack[b] so that every column is a proper distribution even for the
+    // X row, which is patched into the matrix after the lambda estimation.
+    float *condProb = new float[alphabetSize * alphabetSize];
+    for (int b = 0; b < alphabetSize; b++) {
+        double rowSum = 0.0;
+        for (int a = 0; a < alphabetSize; a++) {
+            rowSum += m->probMatrix[b][a];
+        }
+        const double norm = (rowSum > 0.0) ? 1.0 / rowSum : 0.0;
+        for (int a = 0; a < alphabetSize; a++) {
+            condProb[b * alphabetSize + a] = static_cast<float>(m->probMatrix[b][a] * norm);
+        }
+    }
+
+    // the database background is taken as the marginal of the same joint distribution the
+    // conditionals come from. Using pBack here instead would leave a constant offset on the
+    // X column, whose pBack is a fixed constant rather than the matrix' own X mass.
+    double *pMarginal = new double[alphabetSize];
+    double totalMass = 0.0;
+    for (int a = 0; a < alphabetSize; a++) {
+        double colSum = 0.0;
+        for (int b = 0; b < alphabetSize; b++) {
+            colSum += m->probMatrix[b][a];
+        }
+        pMarginal[a] = colSum;
+        totalMass += colSum;
+    }
+    for (int a = 0; a < alphabetSize; a++) {
+        pMarginal[a] = (totalMass > 0.0) ? pMarginal[a] / totalMass : 0.0;
+    }
+
+    // sum of p_k(a) over the current window, maintained incrementally
+    double *windowSum = new double[alphabetSize];
+    memset(windowSum, 0, sizeof(double) * alphabetSize);
+    int winStart = 0;
+    int winEnd = 0;
+
+    for (int i = 0; i < N; i++) {
+        const int newStart = std::max(0, i - d);
+        const int newEnd = std::min(N, i + d + 1);
+        for (int k = winEnd; k < newEnd; k++) {
+            const float *col = condProb + int_sequence[k] * alphabetSize;
+            for (int a = 0; a < alphabetSize; a++) {
+                windowSum[a] += col[a];
+            }
+        }
+        for (int k = winStart; k < newStart; k++) {
+            const float *col = condProb + int_sequence[k] * alphabetSize;
+            for (int a = 0; a < alphabetSize; a++) {
+                windowSum[a] -= col[a];
+            }
+        }
+        winStart = newStart;
+        winEnd = newEnd;
+
+        const double invWindowLength = 1.0 / static_cast<double>(winEnd - winStart);
+        float *out = compositionBias + i * alphabetSize;
+        for (int a = 0; a < alphabetSize; a++) {
+            const double localFreq = wLocal * windowSum[a] * invWindowLength
+                                     + (1.0 - wLocal) * pMarginal[a];
+            const double ratio = (pMarginal[a] > 0.0) ? localFreq / pMarginal[a] : 1.0;
+            // guard against a zero local frequency, which can only happen for a letter
+            // that has zero probability under every column of the substitution matrix
+            out[a] = (ratio > 0.0) ? static_cast<float>(scale * bitFactor * -std::log2(ratio)) : 0.0f;
+        }
+
+        // E_fdb[delta] equals bitFactor * KL(f_db || f_i) and is therefore always >= 0, i.e. the
+        // uncorrected score's negative expectation against a random target is not preserved.
+        // Subtracting it restores that expectation while keeping the per-letter shape.
+        if (centerExpectation) {
+            double expectation = 0.0;
+            for (int a = 0; a < alphabetSize; a++) {
+                expectation += pMarginal[a] * out[a];
+            }
+            for (int a = 0; a < alphabetSize; a++) {
+                out[a] -= static_cast<float>(expectation);
+            }
+        }
+
+        // Scalar projection onto the query's own letter. Position i is excluded from its own
+        // local background: p(x_i|x_i) sits far above f_db(x_i), so keeping it would drag every
+        // position's projection negative irrespective of the actual local composition, which in
+        // the k-mer stage raises the seed threshold everywhere and costs sensitivity.
+        // calcLocalAaBiasCorrection() drops the same self term ("remove own amino acid").
+        if (compositionBiasDiagonal != NULL) {
+            const unsigned char self = int_sequence[i];
+            const float *selfCol = condProb + self * alphabetSize;
+            const int looLength = (winEnd - winStart) - 1;
+            double diag = 0.0;
+            if (looLength > 0) {
+                const double invLoo = 1.0 / static_cast<double>(looLength);
+                double expectationLoo = 0.0;
+                if (centerExpectation) {
+                    for (int a = 0; a < alphabetSize; a++) {
+                        const double f = wLocal * (windowSum[a] - selfCol[a]) * invLoo
+                                         + (1.0 - wLocal) * pMarginal[a];
+                        const double r = (pMarginal[a] > 0.0) ? f / pMarginal[a] : 1.0;
+                        if (r > 0.0) {
+                            expectationLoo += pMarginal[a] * (scale * bitFactor * -std::log2(r));
+                        }
+                    }
+                }
+                const double fSelf = wLocal * (windowSum[self] - selfCol[self]) * invLoo
+                                     + (1.0 - wLocal) * pMarginal[self];
+                const double rSelf = (pMarginal[self] > 0.0) ? fSelf / pMarginal[self] : 1.0;
+                diag = (rSelf > 0.0) ? (scale * bitFactor * -std::log2(rSelf)) - expectationLoo : 0.0;
+            }
+            compositionBiasDiagonal[i] = static_cast<float>(diag);
+        }
+    }
+
+    delete[] pMarginal;
+    delete[] windowSum;
+    delete[] condProb;
+}
 
 void SubstitutionMatrix::calcProfileProfileLocalAaBiasCorrection(short *profileScores,
                                                                  const size_t profileAASize,

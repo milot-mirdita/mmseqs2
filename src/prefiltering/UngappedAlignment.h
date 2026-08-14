@@ -19,8 +19,9 @@ public:
 
     ~UngappedAlignment();
 
-    void createProfile(Sequence *seq, float *biasCorrection,
-                       const unsigned char *numSeqOverride = NULL);
+    void createProfile(Sequence *seq, const float *biasCorrection,
+                       const unsigned char *numSeqOverride = NULL,
+                       const float *biasCorrectionProfile = NULL);
 
     // This function computes the diagonal score for each CounterResult object
     // it assigns the diagonal score to the CounterResult object

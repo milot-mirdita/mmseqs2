@@ -92,7 +92,7 @@ class SubstitutionMatrixProfileStates : public BaseMatrix {
     float * getProfileVectorForState(size_t k){
         return ps->getProfile(k);
     }
-    virtual float getBitFactor() {return bitFactor; }
+    virtual float getBitFactor() const {return bitFactor; }
     float getScoreNormalization(){ return scoreNormalization; }
     virtual float getScoreBias() {return scoreBias; }
 
